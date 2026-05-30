@@ -7,7 +7,7 @@ from config import VK_GROUP_TOKEN
 from database import init_db, save_search_query, get_user_queries, get_last_user_query
 from demo_tenders import find_demo_tenders, format_demo_tenders
 from simple_analyzer import analyze_query
-from tender_parser import parse_tender_query, format_parsed_query
+from tender_parser import parse_tender_query, format_parsed_query, is_valid_tender_query
 
 
 def send_message(vk, user_id, text):
@@ -15,6 +15,15 @@ def send_message(vk, user_id, text):
         user_id=user_id,
         message=text,
         random_id=random.randint(1, 1_000_000),
+    )
+
+def get_invalid_query_text():
+    return (
+        "Я не понял тендерный запрос.\n\n"
+        "Напишите подробнее, например:\n"
+        "ремонт кровли Удмуртия до 5 млн\n\n"
+        "Также можно написать:\n"
+        "помощь — покажу инструкцию"
     )
 
 def get_help_text():
@@ -131,6 +140,10 @@ def handle_message(user_id, text):
         )
 
     parsed_data = parse_tender_query(text)
+
+    if not is_valid_tender_query(parsed_data):
+        return get_invalid_query_text()
+
     save_search_query(
         user_id=user_id,
         original_text=text,

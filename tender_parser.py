@@ -11,11 +11,13 @@ def parse_tender_query(text):
     category = text
 
     for alias, region_name in REGION_ALIASES.items():
-        if alias in text_lower:
+        alias_pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
+
+        if re.search(alias_pattern, text_lower):
             region = region_name
 
             category = re.sub(
-                alias,
+                alias_pattern,
                 "",
                 category,
                 flags=re.IGNORECASE,
@@ -23,22 +25,55 @@ def parse_tender_query(text):
 
             break
 
-    budget_match = re.search(
-        r"до\s+(\d+)\s*(млн|миллион|миллиона|миллионов)",
-        text_lower,
+    budget_patterns = [
+        (
+            r"до\s+(\d+(?:[.,]\d+)?)\s*(миллионов|миллиона|миллион|млн)",
+            1_000_000,
+        ),
+        (
+            r"до\s+(\d+(?:[.,]\d+)?)\s*(тысяч|тысячи|тыс)",
+            1_000,
+        ),
+        (
+            r"до\s+(\d[\d\s]*)",
+            1,
+        ),
+        (
+            r"(\d+(?:[.,]\d+)?)\s*(миллионов|миллиона|миллион|млн)",
+            1_000_000,
+        ),
+        (
+            r"(\d+(?:[.,]\d+)?)\s*(тысяч|тысячи|тыс)",
+            1_000,
+        ),
+        (
+            r"\b(\d{6,})\b",
+            1,
+        ),
+    ]
+
+    for pattern, multiplier in budget_patterns:
+        budget_match = re.search(pattern, text_lower)
+
+        if budget_match:
+            budget_text = budget_match.group(1).replace(",", ".").replace(" ", "")
+            budget_number = float(budget_text)
+            budget = int(budget_number * multiplier)
+
+            category = re.sub(
+                pattern,
+                "",
+                category,
+                flags=re.IGNORECASE,
+            )
+
+            break
+    category = re.sub(
+        r"\b(в|во|по|на)\s*$",
+        "",
+        category,
+        flags=re.IGNORECASE,
     )
-
-    if budget_match:
-        budget_number = int(budget_match.group(1))
-        budget = budget_number * 1_000_000
-
-        category = re.sub(
-            r"до\s+\d+\s*(млн|миллион|миллиона|миллионов)",
-            "",
-            category,
-            flags=re.IGNORECASE,
-        )
-
     category = " ".join(category.split())
 
     return {
@@ -68,3 +103,36 @@ def format_parsed_query(parsed_data):
         "2. Объяснить, какие тендеры подойдут\n"
         "3. Показать сохранённые запросы"
     )
+
+def is_valid_tender_query(parsed_data):
+    category = parsed_data["category"].strip().lower()
+    region = parsed_data["region"]
+    budget = parsed_data["budget"]
+
+    bad_categories = [
+        "",
+        "?",
+        "ок",
+        "да",
+        "нет",
+        "найди",
+        "найди что-нибудь",
+        "тендер",
+        "тендеры",
+        "помощь",
+        "привет",
+    ]
+
+    if category in bad_categories:
+        return False
+
+    if category.isdigit():
+        return False
+
+    if len(category) < 5:
+        return False
+
+    if not region and not budget and len(category.split()) < 2:
+        return False
+
+    return True
