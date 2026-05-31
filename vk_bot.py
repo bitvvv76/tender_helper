@@ -6,7 +6,7 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 from config import VK_GROUP_TOKEN
 from database import init_db, save_search_query, get_user_queries, get_last_user_query
 from demo_tenders import find_demo_tenders, format_demo_tenders
-from simple_analyzer import analyze_query
+from ai_analyzer import analyze_tender_simple as analyze_tender_ai
 from tender_parser import parse_tender_query, format_parsed_query, is_valid_tender_query
 
 
@@ -133,12 +133,25 @@ def handle_message(user_id, text):
 
         category, region, budget = last_query
 
-        return analyze_query(
+        tenders = find_demo_tenders(
             category=category,
             region=region,
             budget=budget,
+            limit=1,
         )
 
+        if not tenders:
+            tender = {
+                "title": category,
+                "region": region or "Регион не указан",
+                "price": budget or 0,
+                "customer": "Заказчик не указан в демо-запросе",
+            }
+
+            return analyze_tender_ai(tender)
+
+        return analyze_tender_ai(tenders[0])
+    
     parsed_data = parse_tender_query(text)
 
     if not is_valid_tender_query(parsed_data):
