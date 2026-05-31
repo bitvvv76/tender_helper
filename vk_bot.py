@@ -144,6 +144,15 @@ def handle_message(user_id, text):
     if not is_valid_tender_query(parsed_data):
         return get_invalid_query_text()
 
+    if text.lower().startswith("найти"):
+        tenders = find_demo_tenders(
+            category=parsed_data["category"],
+            region=parsed_data["region"],
+            budget=parsed_data["budget"],
+        )
+
+        return format_demo_tenders(tenders)
+
     save_search_query(
         user_id=user_id,
         original_text=text,
