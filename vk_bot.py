@@ -5,7 +5,6 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 
 from config import VK_GROUP_TOKEN
 from database import init_db, save_search_query, get_user_queries, get_last_user_query
-from demo_tenders import find_demo_tenders, format_demo_tenders
 from real_tenders import search_real_tenders, format_real_tenders
 from ai_analyzer import analyze_tender_simple as analyze_tender_ai
 from tender_parser import parse_tender_query, format_parsed_query, is_valid_tender_query
@@ -34,7 +33,7 @@ def get_help_text():
         "1. Разобрать тендерный запрос\n"
         "Пример:\n"
         "ремонт кровли Удмуртия до 5 млн\n\n"
-        "2. Найти похожие демо-тендеры\n"
+        "2. Найти реальные тендеры из ЕИС\n"
         "Команда:\n"
         "найти\n\n"
         "3. Объяснить, какие тендеры подойдут\n"
@@ -48,7 +47,7 @@ def get_help_text():
         "ремонт дороги Ижевск до 3 млн\n"
         "строительство площадки Уфа до 7 млн\n\n"
         "Важно: сейчас это MVP-версия. "
-        "Демо-тендеры тестовые. Позже можно подключить реальные источники поиска."
+        "Поиск работает через ЕИС. Это MVP-версия, поэтому часть карточек может отображаться упрощённо."
     )
 
 def format_user_queries(rows):
@@ -89,7 +88,7 @@ def handle_message(user_id, text):
             "Напиши тендерный запрос простыми словами, например:\n"
             "ремонт кровли Удмуртия до 5 млн\n\n"
             "После запроса можно написать:\n"
-            "найти — покажу похожие демо-тендеры\n"
+            "найти — покажу реальные тендеры из ЕИС\n"
             "объяснить — объясню, какие тендеры подойдут\n"
             "мои запросы — покажу историю запросов\n"
             "помощь — покажу инструкцию"
@@ -134,13 +133,13 @@ def handle_message(user_id, text):
 
         category, region, budget = last_query
 
-        tenders = find_demo_tenders(
+        tenders = search_real_tenders(
             category=category,
             region=region,
             budget=budget,
         )
 
-        return format_demo_tenders(tenders)
+        return format_real_tenders(tenders)
     
     if text_lower in ["объяснить", "разобрать", "анализ", "какие тендеры подойдут"]:
         last_query = get_last_user_query(user_id)
@@ -154,7 +153,7 @@ def handle_message(user_id, text):
 
         category, region, budget = last_query
 
-        tenders = find_demo_tenders(
+        tenders = search_real_tenders(
             category=category,
             region=region,
             budget=budget,
@@ -178,15 +177,7 @@ def handle_message(user_id, text):
     if not is_valid_tender_query(parsed_data):
         return get_invalid_query_text()
 
-    if text.lower().startswith("найти"):
-        tenders = find_demo_tenders(
-            category=parsed_data["category"],
-            region=parsed_data["region"],
-            budget=parsed_data["budget"],
-        )
-
-        return format_demo_tenders(tenders)
-
+   
     save_search_query(
         user_id=user_id,
         original_text=text,
