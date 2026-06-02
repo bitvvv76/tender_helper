@@ -6,6 +6,7 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 from config import VK_GROUP_TOKEN
 from database import init_db, save_search_query, get_user_queries, get_last_user_query
 from demo_tenders import find_demo_tenders, format_demo_tenders
+from real_tenders import search_real_tenders, format_real_tenders
 from ai_analyzer import analyze_tender_simple as analyze_tender_ai
 from tender_parser import parse_tender_query, format_parsed_query, is_valid_tender_query
 
@@ -100,6 +101,26 @@ def handle_message(user_id, text):
     if text_lower in ["мои запросы", "история", "показать запросы"]:
         rows = get_user_queries(user_id)
         return format_user_queries(rows)
+    
+    if text_lower in ["реальные тендеры", "реальный поиск", "настоящие тендеры"]:
+        last_query = get_last_user_query(user_id)
+
+        if not last_query:
+            return (
+                "У вас пока нет сохранённых запросов.\n\n"
+                "Сначала напишите запрос, например:\n"
+                "ремонт кровли Удмуртия до 5 млн"
+            )
+
+        category, region, budget = last_query
+
+        tenders = search_real_tenders(
+            category=category,
+            region=region,
+            budget=budget,
+        )
+
+        return format_real_tenders(tenders)
 
     if text_lower in ["найти", "найти похожие тендеры", "похожие тендеры"]:
         last_query = get_last_user_query(user_id)

@@ -1,0 +1,140 @@
+import re
+
+import requests
+from bs4 import BeautifulSoup
+
+
+BASE_URL = "https://zakupki.gov.ru"
+
+
+def clean_text(text):
+    return " ".join(text.split())
+
+
+def extract_price(text):
+    match = re.search(r"Начальная цена\s+([\d\s]+,\d{2})\s+₽", text)
+
+    if not match:
+        return None
+
+    price_text = match.group(1)
+    price_number = price_text.replace(" ", "").replace(",", ".")
+
+    return float(price_number)
+
+
+def search_real_tenders(category, region=None, budget=None, limit=5):
+    url = "https://zakupki.gov.ru/epz/order/extendedsearch/results.html"
+
+    search_string = category
+
+    if region:
+        search_string = f"{category} {region}"
+
+    params = {
+        "searchString": search_string,
+        "morphology": "on",
+        "pageNumber": 1,
+        "sortDirection": "false",
+        "recordsPerPage": 10,
+        "showLotsInfoHidden": "false",
+        "fz44": "on",
+        "fz223": "on",
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    response = requests.get(url, params=params, headers=headers, timeout=20)
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    cards = soup.select(".search-registry-entry-block")
+
+    tenders = []
+
+    for card in cards:
+        text = clean_text(card.get_text(" ", strip=True))
+
+        law = "223-ФЗ" if "223-ФЗ" in text else "44-ФЗ" if "44-ФЗ" in text else "Не определён"
+
+        number = "Не найден"
+        tender_url = "Ссылка не найдена"
+
+        for link in card.select("a"):
+            link_text = clean_text(link.get_text(" ", strip=True))
+            href = link.get("href")
+
+            if link_text.startswith("№") and href:
+                number = link_text
+
+                if href.startswith("/"):
+                    href = BASE_URL + href
+
+                tender_url = href
+                break
+
+        customer = "Не найден"
+        customer_match = re.search(r"Заказчик\s+(.+?)\s+Начальная цена", text)
+        if customer_match:
+            customer = customer_match.group(1)
+
+        title = "Не найден"
+        title_match = re.search(r"Объект закупки\s+(.+?)\s+Заказчик", text)
+        if title_match:
+            title = title_match.group(1)
+
+        price = extract_price(text)
+
+        if budget and price and price > budget:
+            continue
+
+        if title == "Не найден" or customer == "Не найден":
+            continue
+
+        tender = {
+            "title": title,
+            "region": region or "Регион не указан",
+            "price": price or 0,
+            "customer": customer,
+            "url": tender_url,
+            "source": f"ЕИС {law}",
+            "number": number,
+        }
+
+        tenders.append(tender)
+
+        if len(tenders) >= limit:
+            break
+
+    return tenders
+
+
+def format_real_tenders(tenders):
+    if not tenders:
+        return (
+            "Реальные тендеры пока не найдены.\n\n"
+            "Попробуйте изменить запрос:\n"
+            "• ремонт кровли\n"
+            "• поставка окон\n"
+            "• ремонт дороги\n\n"
+            "Также можно увеличить бюджет или убрать регион."
+        )
+
+    lines = ["🌐 Я нашёл реальные тендеры из ЕИС:\n"]
+
+    for index, tender in enumerate(tenders, start=1):
+        price_text = f"{tender['price']:,.2f} ₽".replace(",", " ")
+
+        lines.append(
+            f"{index}. {tender['title']}\n"
+            f"📌 Номер: {tender['number']}\n"
+            f"📍 Регион/поиск: {tender['region']}\n"
+            f"💰 Цена: {price_text}\n"
+            f"🏢 Заказчик: {tender['customer']}\n"
+            f"🔗 Ссылка: {tender['url']}\n"
+            f"Источник: {tender['source']}\n"
+        )
+
+    return "\n".join(lines)
