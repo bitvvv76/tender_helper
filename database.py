@@ -290,3 +290,58 @@ def get_last_found_tender(user_id, position):
     connection.close()
 
     return row
+
+def delete_saved_tender(user_id, position):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT id
+        FROM saved_tenders
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 1 OFFSET ?
+        """,
+        (user_id, position - 1),
+    )
+
+    row = cursor.fetchone()
+
+    if not row:
+        connection.close()
+        return False
+
+    tender_id = row[0]
+
+    cursor.execute(
+        """
+        DELETE FROM saved_tenders
+        WHERE id = ? AND user_id = ?
+        """,
+        (tender_id, user_id),
+    )
+
+    connection.commit()
+    connection.close()
+
+    return True
+
+def clear_saved_tenders(user_id):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        DELETE FROM saved_tenders
+        WHERE user_id = ?
+        """,
+        (user_id,),
+    )
+
+    deleted_count = cursor.rowcount
+
+    connection.commit()
+    connection.close()
+
+    return deleted_count

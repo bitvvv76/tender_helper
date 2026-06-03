@@ -13,6 +13,8 @@ from database import (
     get_saved_tenders,
     save_last_found_tenders,
     get_last_found_tender,
+    delete_saved_tender,
+    clear_saved_tenders
 )
 from real_tenders import search_real_tenders, format_real_tenders
 from ai_analyzer import analyze_tender_simple as analyze_tender_ai
@@ -148,6 +150,37 @@ def handle_message(user_id, text):
         rows = get_saved_tenders(user_id)
         return format_saved_tenders(rows)
     
+    if text_lower.startswith("удалить тендер "):
+        parts = text_lower.split()
+
+        if len(parts) != 3 or not parts[2].isdigit():
+            return (
+                "Не понял, какой тендер удалить.\n\n"
+                "Напишите так:\n"
+                "удалить тендер 1"
+            )
+
+        position = int(parts[2])
+
+        deleted = delete_saved_tender(user_id, position)
+
+        if not deleted:
+            return (
+                "Я не нашёл сохранённый тендер с таким номером.\n\n"
+                "Проверьте список командой:\n"
+                "мои тендеры"
+            )
+
+        return "Тендер удалён ✅"
+    
+    if text_lower in ["очистить тендеры", "очистить избранное", "удалить все тендеры"]:
+        deleted_count = clear_saved_tenders(user_id)
+
+        if deleted_count == 0:
+            return "У вас пока нет сохранённых тендеров."
+
+        return f"Сохранённые тендеры очищены ✅\nУдалено: {deleted_count}"
+        
     if text_lower.startswith("сохранить "):
         parts = text_lower.split()
 
