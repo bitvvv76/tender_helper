@@ -22,6 +22,26 @@ def extract_price(text):
 
     return float(price_number)
 
+def get_region_keywords(region):
+    if not region:
+        return []
+
+    region_lower = region.lower()
+
+    if region_lower == "удмуртия":
+        return ["удмуртия", "удмуртская республика", "ижевск"]
+
+    if region_lower == "татарстан":
+        return ["татарстан", "республика татарстан", "казань"]
+
+    if region_lower == "башкортостан":
+        return ["башкортостан", "республика башкортостан", "уфа"]
+
+    if region_lower == "пермский край":
+        return ["пермский край", "пермь"]
+
+    return [region_lower]
+
 
 def search_real_tenders(category, region=None, budget=None, limit=5):
     url = "https://zakupki.gov.ru/epz/order/extendedsearch/results.html"
@@ -56,6 +76,14 @@ def search_real_tenders(category, region=None, budget=None, limit=5):
 
     for card in cards:
         text = clean_text(card.get_text(" ", strip=True))
+
+        region_keywords = get_region_keywords(region)
+
+        if region_keywords:
+            text_lower = text.lower()
+
+            if not any(keyword in text_lower for keyword in region_keywords):
+                continue
 
         law = "223-ФЗ" if "223-ФЗ" in text else "44-ФЗ" if "44-ФЗ" in text else "Не определён"
 
