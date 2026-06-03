@@ -8,7 +8,25 @@ BASE_URL = "https://zakupki.gov.ru"
 
 
 def clean_text(text):
-    return " ".join(text.split())
+    text = " ".join(text.split())
+
+    replacements = {
+        "кровл и": "кровли",
+        "защит ы": "защиты",
+        "защит ной": "защитной",
+        "беспилотн ого": "беспилотного",
+        "беспилотн ых": "беспилотных",
+        "воздушн ого": "воздушного",
+        "воздушн ых": "воздушных",
+        "суд на": "судна",
+        "суд ов": "судов",
+        "БАШКОРТОСТА Н": "БАШКОРТОСТАН",
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    return text
 
 
 def extract_price(text):
