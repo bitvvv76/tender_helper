@@ -150,6 +150,22 @@ def save_tender(
 
     cursor.execute(
         """
+        SELECT id
+        FROM saved_tenders
+        WHERE user_id = ? AND number = ?
+        LIMIT 1
+        """,
+        (user_id, number),
+    )
+
+    existing = cursor.fetchone()
+
+    if existing:
+        connection.close()
+        return False
+
+    cursor.execute(
+        """
         INSERT INTO saved_tenders (
             user_id,
             title,
@@ -176,6 +192,8 @@ def save_tender(
 
     connection.commit()
     connection.close()
+
+    return True
 
 def get_saved_tenders(user_id, limit=10):
     connection = sqlite3.connect(DB_NAME)

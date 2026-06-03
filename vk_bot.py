@@ -171,7 +171,7 @@ def handle_message(user_id, text):
 
         title, price, customer, url, source, number = tender
 
-        save_tender(
+        saved = save_tender(
             user_id=user_id,
             title=title,
             price=price,
@@ -180,6 +180,13 @@ def handle_message(user_id, text):
             source=source,
             number=number,
         )
+
+        if not saved:
+            return (
+                "Этот тендер уже сохранён ✅\n\n"
+                f"{title}\n"
+                f"📌 Номер: {number}"
+            )
 
         return (
             "Тендер сохранён ✅\n\n"
