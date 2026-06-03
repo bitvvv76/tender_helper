@@ -18,7 +18,9 @@ from database import (
     save_subscription,
     get_subscriptions,
     delete_subscription,
-    clear_subscriptions
+    clear_subscriptions,
+    get_subscriptions_for_check,
+    update_subscription_last_seen
 )
 from real_tenders import search_real_tenders, format_real_tenders
 from ai_analyzer import analyze_tender_simple as analyze_tender_ai
@@ -180,6 +182,55 @@ def handle_message(user_id, text):
     if text_lower in ["мои подписки", "подписки", "мониторинг"]:
         rows = get_subscriptions(user_id)
         return format_subscriptions(rows)
+    
+    if text_lower in ["проверить подписки", "проверка подписок"]:
+        subscriptions = get_subscriptions_for_check(user_id)
+
+        if not subscriptions:
+            return (
+                "У вас пока нет подписок для проверки.\n\n"
+                "Создайте подписку командой:\n"
+                "следить ремонт кровли Башкортостан до 10 млн"
+            )
+
+        lines = ["🔎 Проверяю ваши подписки:\n"]
+
+        for index, subscription in enumerate(subscriptions, start=1):
+            subscription_id, category, region, budget, last_seen_number = subscription
+
+            tenders = search_real_tenders(
+                category=category,
+                region=region,
+                budget=budget,
+                limit=1,
+            )
+
+            if not tenders:
+                lines.append(
+                    f"{index}. {category} — новых тендеров пока не найдено."
+                )
+                continue
+
+            tender = tenders[0]
+            tender_number = tender["number"]
+
+            if last_seen_number == tender_number:
+                lines.append(
+                    f"{index}. {category} — новых тендеров пока не найдено."
+                )
+                continue
+
+            update_subscription_last_seen(subscription_id, tender_number)
+
+            lines.append(
+                f"{index}. 🔔 Новый тендер по подписке: {category}\n"
+                f"{tender['title']}\n"
+                f"📌 Номер: {tender['number']}\n"
+                f"💰 Цена: {tender['price']:,.2f} ₽".replace(",", " ") + "\n"
+                f"🔗 Ссылка: {tender['url']}"
+            )
+
+        return "\n\n".join(lines)
     
     if text_lower.startswith("удалить подписку "):
         parts = text_lower.split()

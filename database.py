@@ -492,3 +492,44 @@ def clear_subscriptions(user_id):
     connection.close()
 
     return deleted_count
+
+def get_subscriptions_for_check(user_id):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            category,
+            region,
+            budget,
+            last_seen_number
+        FROM subscriptions
+        WHERE user_id = ?
+        ORDER BY id DESC
+        """,
+        (user_id,),
+    )
+
+    rows = cursor.fetchall()
+
+    connection.close()
+
+    return rows
+
+def update_subscription_last_seen(subscription_id, tender_number):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        UPDATE subscriptions
+        SET last_seen_number = ?
+        WHERE id = ?
+        """,
+        (tender_number, subscription_id),
+    )
+
+    connection.commit()
+    connection.close()
