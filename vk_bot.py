@@ -14,7 +14,11 @@ from database import (
     save_last_found_tenders,
     get_last_found_tender,
     delete_saved_tender,
-    clear_saved_tenders
+    clear_saved_tenders,
+    save_subscription,
+    get_subscriptions,
+    delete_subscription,
+    clear_subscriptions
 )
 from real_tenders import search_real_tenders, format_real_tenders
 from ai_analyzer import analyze_tender_simple as analyze_tender_ai
@@ -120,6 +124,33 @@ def format_saved_tenders(rows):
 
     return "\n".join(lines)
 
+def format_subscriptions(rows):
+    if not rows:
+        return (
+            "У вас пока нет подписок на мониторинг тендеров.\n\n"
+            "Чтобы создать подписку, напишите:\n"
+            "следить ремонт кровли Башкортостан до 10 млн"
+        )
+
+    lines = ["Ваши подписки на мониторинг:\n"]
+
+    for index, row in enumerate(rows, start=1):
+        original_text, category, region, budget, created_at = row
+
+        region_text = region or "регион не определён"
+
+        if budget:
+            budget_text = f"до {budget:,} ₽".replace(",", " ")
+        else:
+            budget_text = "бюджет не определён"
+
+        lines.append(
+            f"{index}. {category} — {region_text} — {budget_text}\n"
+            f"Запрос: {original_text}"
+        )
+
+    return "\n\n".join(lines)
+
 
 def handle_message(user_id, text):
     text = text.strip()
@@ -145,6 +176,41 @@ def handle_message(user_id, text):
     if text_lower in ["мои запросы", "история", "показать запросы"]:
         rows = get_user_queries(user_id)
         return format_user_queries(rows)
+    
+    if text_lower in ["мои подписки", "подписки", "мониторинг"]:
+        rows = get_subscriptions(user_id)
+        return format_subscriptions(rows)
+    
+    if text_lower.startswith("удалить подписку "):
+        parts = text_lower.split()
+
+        if len(parts) != 3 or not parts[2].isdigit():
+            return (
+                "Не понял, какую подписку удалить.\n\n"
+                "Напишите так:\n"
+                "удалить подписку 1"
+            )
+
+        position = int(parts[2])
+
+        deleted = delete_subscription(user_id, position)
+
+        if not deleted:
+            return (
+                "Я не нашёл подписку с таким номером.\n\n"
+                "Проверьте список командой:\n"
+                "мои подписки"
+            )
+
+        return "Подписка удалена ✅"
+    
+    if text_lower in ["очистить подписки", "удалить все подписки"]:
+        deleted_count = clear_subscriptions(user_id)
+
+        if deleted_count == 0:
+            return "У вас пока нет подписок."
+
+        return f"Подписки очищены ✅\nУдалено: {deleted_count}"
     
     if text_lower in ["мои тендеры", "сохранённые тендеры", "сохраненные тендеры", "избранное"]:
         rows = get_saved_tenders(user_id)
@@ -328,6 +394,53 @@ def handle_message(user_id, text):
             )
 
         return analyze_tender_with_ai(tenders[0])
+    if text_lower.startswith("следить "):
+        subscription_text = text[8:].strip()
+
+        if not subscription_text:
+            return (
+                "Не понял, за каким запросом следить.\n\n"
+                "Напишите так:\n"
+                "следить ремонт кровли Башкортостан до 10 млн"
+            )
+
+        parsed_data = parse_tender_query(subscription_text)
+
+        if not is_valid_tender_query(parsed_data):
+            return (
+                "Не понял запрос для подписки.\n\n"
+                "Напишите подробнее, например:\n"
+                "следить ремонт кровли Башкортостан до 10 млн"
+            )
+        saved = save_subscription(
+            user_id=user_id,
+            original_text=subscription_text,
+            category=parsed_data["category"],
+            region=parsed_data["region"],
+            budget=parsed_data["budget"],
+        )
+
+        if not saved:
+            return (
+                "Такая подписка уже существует ✅\n\n"
+                f"Категория: {parsed_data['category']}\n"
+                f"Регион: {parsed_data['region'] or 'не определён'}"
+            )
+
+        budget = parsed_data["budget"]
+
+        if budget:
+            budget_text = f"до {budget:,} ₽".replace(",", " ")
+        else:
+            budget_text = "не определён"
+
+        return (
+            "Подписка создана ✅\n\n"
+            f"Категория: {parsed_data['category']}\n"
+            f"Регион: {parsed_data['region'] or 'не определён'}\n"
+            f"Бюджет: {budget_text}\n\n"
+            "Теперь бот сможет использовать этот запрос для мониторинга новых тендеров."
+        )
         
     parsed_data = parse_tender_query(text)
 

@@ -54,6 +54,21 @@ def init_db():
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            original_text TEXT NOT NULL,
+            category TEXT,
+            region TEXT,
+            budget INTEGER,
+            last_seen_number TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+
     connection.commit()
     connection.close()
 
@@ -334,6 +349,138 @@ def clear_saved_tenders(user_id):
     cursor.execute(
         """
         DELETE FROM saved_tenders
+        WHERE user_id = ?
+        """,
+        (user_id,),
+    )
+
+    deleted_count = cursor.rowcount
+
+    connection.commit()
+    connection.close()
+
+    return deleted_count
+
+def save_subscription(user_id, original_text, category, region, budget):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT id
+        FROM subscriptions
+        WHERE user_id = ?
+          AND category = ?
+          AND IFNULL(region, '') = IFNULL(?, '')
+          AND IFNULL(budget, 0) = IFNULL(?, 0)
+        LIMIT 1
+        """,
+        (user_id, category, region, budget),
+    )
+
+    existing = cursor.fetchone()
+
+    if existing:
+        connection.close()
+        return False
+
+    cursor.execute(
+        """
+        INSERT INTO subscriptions (
+            user_id,
+            original_text,
+            category,
+            region,
+            budget,
+            last_seen_number,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            original_text,
+            category,
+            region,
+            budget,
+            None,
+            datetime.now().isoformat(timespec="seconds"),
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+    return True
+
+def get_subscriptions(user_id):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            original_text,
+            category,
+            region,
+            budget,
+            created_at
+        FROM subscriptions
+        WHERE user_id = ?
+        ORDER BY id DESC
+        """,
+        (user_id,),
+    )
+
+    rows = cursor.fetchall()
+
+    connection.close()
+
+    return rows
+
+def delete_subscription(user_id, position):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT id
+        FROM subscriptions
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 1 OFFSET ?
+        """,
+        (user_id, position - 1),
+    )
+
+    row = cursor.fetchone()
+
+    if not row:
+        connection.close()
+        return False
+
+    subscription_id = row[0]
+
+    cursor.execute(
+        """
+        DELETE FROM subscriptions
+        WHERE id = ? AND user_id = ?
+        """,
+        (subscription_id, user_id),
+    )
+
+    connection.commit()
+    connection.close()
+
+    return True
+
+def clear_subscriptions(user_id):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        DELETE FROM subscriptions
         WHERE user_id = ?
         """,
         (user_id,),
