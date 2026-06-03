@@ -8,6 +8,7 @@ from database import init_db, save_search_query, get_user_queries, get_last_user
 from real_tenders import search_real_tenders, format_real_tenders
 from ai_analyzer import analyze_tender_simple as analyze_tender_ai
 from tender_parser import parse_tender_query, format_parsed_query, is_valid_tender_query
+from ai_client import analyze_tender_with_ai
 
 
 def send_message(vk, user_id, text):
@@ -172,6 +173,33 @@ def handle_message(user_id, text):
 
         return analyze_tender_ai(tenders[0])
     
+    if text_lower in ["ии анализ", "ai анализ", "нейро анализ", "глубокий анализ"]:
+        last_query = get_last_user_query(user_id)
+
+        if not last_query:
+            return (
+                "У вас пока нет сохранённых запросов.\n\n"
+                "Сначала напишите запрос, например:\n"
+                "ремонт кровли Удмуртия до 5 млн"
+            )
+
+        category, region, budget = last_query
+
+        tenders = search_real_tenders(
+            category=category,
+            region=region,
+            budget=budget,
+            limit=1,
+        )
+
+        if not tenders:
+            return (
+                "Я не нашёл реальный тендер для AI-анализа.\n\n"
+                "Попробуйте изменить запрос или убрать регион."
+            )
+
+        return analyze_tender_with_ai(tenders[0])
+        
     parsed_data = parse_tender_query(text)
 
     if not is_valid_tender_query(parsed_data):

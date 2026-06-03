@@ -60,6 +60,53 @@ def get_region_keywords(region):
 
     return [region_lower]
 
+def get_search_words(category):
+    ignored_words = {
+        "и", "в", "на", "по", "для", "от", "до", "с", "со",
+        "закупка", "поставка", "работы", "услуги"
+    }
+
+    words = category.lower().split()
+
+    normalized_words = []
+
+    for word in words:
+        if word.startswith("нефтебаз"):
+            normalized_words.append("нефтебаз")
+        elif word.startswith("кровл"):
+            normalized_words.append("кровл")
+        elif word.startswith("защит"):
+            normalized_words.append("защит")
+        elif word.startswith("бпла"):
+            normalized_words.append("бпла")
+        else:
+            normalized_words.append(word)
+
+    words = normalized_words
+
+    return [
+        word
+        for word in words
+        if len(word) > 2 and word not in ignored_words
+    ]
+
+
+def calculate_relevance_score(card_text, category):
+    search_words = get_search_words(category)
+
+    if not search_words:
+        return 0
+
+    text = card_text.lower()
+
+    score = 0
+
+    for word in search_words:
+        if word in text:
+            score += 1
+
+    return score
+
 
 def search_real_tenders(category, region=None, budget=None, limit=5):
     url = "https://zakupki.gov.ru/epz/order/extendedsearch/results.html"
@@ -133,6 +180,18 @@ def search_real_tenders(category, region=None, budget=None, limit=5):
 
         price = extract_price(text)
 
+        relevance_score = calculate_relevance_score(
+            card_text=text,
+            category=category,
+        )
+        search_words = get_search_words(category)
+
+        if len(search_words) >= 2 and relevance_score < 2:
+            continue
+
+        if len(search_words) == 1 and relevance_score == 0:
+            continue
+
         if budget and price and price > budget:
             continue
 
@@ -147,12 +206,14 @@ def search_real_tenders(category, region=None, budget=None, limit=5):
             "url": tender_url,
             "source": f"ЕИС {law}",
             "number": number,
+            "relevance_score": relevance_score,
         }
 
         tenders.append(tender)
 
         if len(tenders) >= limit:
             break
+    tenders.sort(key=lambda tender: tender.get("relevance_score", 0), reverse=True)
 
     return tenders
 
