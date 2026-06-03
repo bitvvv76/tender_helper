@@ -4,7 +4,16 @@ import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
 
 from config import VK_GROUP_TOKEN
-from database import init_db, save_search_query, get_user_queries, get_last_user_query
+from database import (
+    init_db,
+    save_search_query,
+    get_user_queries,
+    get_last_user_query,
+    save_tender,
+    get_saved_tenders,
+    save_last_found_tenders,
+    get_last_found_tender,
+)
 from real_tenders import search_real_tenders, format_real_tenders
 from ai_analyzer import analyze_tender_simple as analyze_tender_ai
 from tender_parser import parse_tender_query, format_parsed_query, is_valid_tender_query
@@ -81,6 +90,34 @@ def format_user_queries(rows):
 
     return "\n".join(lines)
 
+def format_saved_tenders(rows):
+    if not rows:
+        return (
+            "У вас пока нет сохранённых тендеров.\n\n"
+            "Сначала найдите тендеры командой:\n"
+            "найти\n\n"
+            "Потом сохраните нужный тендер командой:\n"
+            "сохранить 1"
+        )
+
+    lines = ["Ваши сохранённые тендеры:\n"]
+
+    for index, row in enumerate(rows, start=1):
+        title, price, customer, url, source, number, created_at = row
+
+        price_text = f"{price:,.2f} ₽".replace(",", " ")
+
+        lines.append(
+            f"{index}. {title}\n"
+            f"📌 Номер: {number}\n"
+            f"💰 Цена: {price_text}\n"
+            f"🏢 Заказчик: {customer}\n"
+            f"🔗 Ссылка: {url}\n"
+            f"Источник: {source}\n"
+        )
+
+    return "\n".join(lines)
+
 
 def handle_message(user_id, text):
     text = text.strip()
@@ -107,6 +144,49 @@ def handle_message(user_id, text):
         rows = get_user_queries(user_id)
         return format_user_queries(rows)
     
+    if text_lower in ["мои тендеры", "сохранённые тендеры", "сохраненные тендеры", "избранное"]:
+        rows = get_saved_tenders(user_id)
+        return format_saved_tenders(rows)
+    
+    if text_lower.startswith("сохранить "):
+        parts = text_lower.split()
+
+        if len(parts) != 2 or not parts[1].isdigit():
+            return (
+                "Не понял, какой тендер сохранить.\n\n"
+                "Напишите так:\n"
+                "сохранить 1"
+            )
+
+        position = int(parts[1])
+
+        tender = get_last_found_tender(user_id, position)
+
+        if not tender:
+            return (
+                "Я не нашёл тендер с таким номером.\n\n"
+                "Сначала выполните поиск командой:\n"
+                "найти"
+            )
+
+        title, price, customer, url, source, number = tender
+
+        save_tender(
+            user_id=user_id,
+            title=title,
+            price=price,
+            customer=customer,
+            url=url,
+            source=source,
+            number=number,
+        )
+
+        return (
+            "Тендер сохранён ✅\n\n"
+            f"{title}\n"
+            f"📌 Номер: {number}"
+        )
+        
     if text_lower in ["реальные тендеры", "реальный поиск", "настоящие тендеры"]:
         last_query = get_last_user_query(user_id)
 
@@ -124,6 +204,8 @@ def handle_message(user_id, text):
             region=region,
             budget=budget,
         )
+
+        save_last_found_tenders(user_id, tenders)
 
         return format_real_tenders(tenders)
 
@@ -144,6 +226,8 @@ def handle_message(user_id, text):
             region=region,
             budget=budget,
         )
+
+        save_last_found_tenders(user_id, tenders)
 
         return format_real_tenders(tenders)
     
