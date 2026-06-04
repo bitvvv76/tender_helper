@@ -533,3 +533,27 @@ def update_subscription_last_seen(subscription_id, tender_number):
 
     connection.commit()
     connection.close()
+
+def get_all_subscriptions():
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            user_id,
+            category,
+            region,
+            budget,
+            last_seen_number
+        FROM subscriptions
+        ORDER BY user_id
+        """
+    )
+
+    rows = cursor.fetchall()
+
+    connection.close()
+
+    return rows
