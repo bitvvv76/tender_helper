@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Tender Helper Subscription Checker every hour
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Unit=subscription-checker.service
+
+[Install]
+WantedBy=timers.target
