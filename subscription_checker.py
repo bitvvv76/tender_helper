@@ -17,7 +17,10 @@ def check_all_subscriptions():
     vk_session = vk_api.VkApi(token=VK_GROUP_TOKEN)
     vk = vk_session.get_api()
 
+   
+
     subscriptions = get_all_subscriptions()
+    print(f"Найдено подписок: {len(subscriptions)}")
 
     if not subscriptions:
         print("Нет подписок для проверки.")
@@ -25,6 +28,8 @@ def check_all_subscriptions():
 
     for subscription in subscriptions:
         subscription_id, user_id, category, region, budget, last_seen_number = subscription
+
+        print(f"Проверяю подписку: {category}, регион: {region}, бюджет: {budget}")
 
         tenders = search_real_tenders(
             category=category,
@@ -34,12 +39,14 @@ def check_all_subscriptions():
         )
 
         if not tenders:
+            print("Тендеры не найдены.")
             continue
 
         tender = tenders[0]
         tender_number = tender["number"]
 
         if last_seen_number == tender_number:
+            print(f"Новых тендеров нет. Последний номер: {tender_number}")
             continue
 
         update_subscription_last_seen(subscription_id, tender_number)
@@ -54,6 +61,7 @@ def check_all_subscriptions():
         )
 
         send_vk_message(vk, user_id, message)
+        print(f"Отправлено уведомление пользователю {user_id}: {tender_number}")
 
     print("Проверка подписок завершена.")
 

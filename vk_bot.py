@@ -492,7 +492,13 @@ def handle_message(user_id, text):
             f"Бюджет: {budget_text}\n\n"
             "Теперь бот сможет использовать этот запрос для мониторинга новых тендеров."
         )
-        
+    
+    if text_lower in ["тест уведомления", "тест"]:
+        return (
+            "🔔 Тестовое уведомление\n\n"
+            "Если вы видите это сообщение, значит система уведомлений работает."
+        )
+            
     parsed_data = parse_tender_query(text)
 
     if not is_valid_tender_query(parsed_data):
