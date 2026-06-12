@@ -1,5 +1,5 @@
 from flask import Flask
-from database import get_all_subscriptions, get_user_queries
+from database import get_all_subscriptions, get_user_queries, get_saved_tenders
 
 app = Flask(__name__)
 
@@ -71,6 +71,60 @@ def queries_page():
 
     return html
 
+@app.route("/tenders")
+def tenders_page():
+
+    tenders = get_saved_tenders(1113849253, 20)
+
+    if not tenders:
+        return """
+        <h1>Сохранённые тендеры</h1>
+        <a href="/">← Назад в Dashboard</a>
+        <hr>
+        <p>Сохранённых тендеров пока нет.</p>
+        """
+
+    html = """
+    <h1>Сохранённые тендеры</h1>
+
+    <a href="/">← Назад в Dashboard</a>
+
+    <hr>
+
+    <table border="1" cellpadding="10">
+    <tr>
+        <th>Название</th>
+        <th>Цена</th>
+        <th>Заказчик</th>
+        <th>Номер</th>
+        <th>Источник</th>
+        <th>Дата</th>
+    </tr>
+    """
+
+    for tender in tenders:
+        price = tender[1]
+
+        if price:
+            price_text = f"{price:,.2f}".replace(",", " ") + " ₽"
+        else:
+            price_text = "не указана"
+
+        html += f"""
+        <tr>
+            <td>{tender[0]}</td>
+            <td>{price_text}</td>
+            <td>{tender[2]}</td>
+            <td>{tender[5]}</td>
+            <td>{tender[4]}</td>
+            <td>{tender[6]}</td>
+        </tr>
+        """
+
+    html += "</table>"
+
+    return html
+
 
 @app.route("/")
 def index():
@@ -84,7 +138,7 @@ def index():
         <a href="/">Главная</a> |
         <a href="/subscriptions">Подписки</a> |
         <a href="/queries">Запросы</a>
-        <a href="/">Тендеры</a> |
+        <a href="/tenders">Тендеры</a>
         <a href="/">Статистика</a>
     </nav>
 
