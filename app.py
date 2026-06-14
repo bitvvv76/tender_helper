@@ -59,12 +59,22 @@ def queries_page():
     """
 
     for q in queries:
+        category = q[0] if q[0] else "—"
+        region = q[1] if q[1] else "—"
+
+        if q[2]:
+            budget = f"{q[2]:,}".replace(",", " ") + " ₽"
+        else:
+            budget = "—"
+
+        created_at = q[3] if q[3] else "—"
+
         html += f"""
         <tr style="border-bottom: 1px solid #ddd;">
-            <td style="padding: 10px; text-align:center;">{q[0]}</td>
-            <td style="padding: 10px; text-align:center;">{q[1]}</td>
-            <td style="padding: 10px; text-align:center;">{q[2]}</td>
-            <td style="padding: 10px; text-align:center;">{q[3]}</td>
+            <td style="padding: 10px; text-align:center;">{category}</td>
+            <td style="padding: 10px; text-align:center;">{region}</td>
+            <td style="padding: 10px; text-align:center;">{budget}</td>
+            <td style="padding: 10px; text-align:center;">{created_at}</td>
         </tr>
         """
 
@@ -79,11 +89,33 @@ def tenders_page():
 
     if not tenders:
         return """
-        <h1>Сохранённые тендеры</h1>
-        <a href="/">← Назад в Dashboard</a>
-        <hr>
-        <p>Сохранённых тендеров пока нет.</p>
-        """
+        <div style="
+        background:#1f4e79;
+        color:white;
+        padding:20px;
+        border-radius:10px;
+        margin-bottom:20px;
+        ">
+            <h1>Сохранённые тендеры</h1>
+            <p>Раздел для избранных тендеров и быстрого доступа к ним.</p>
+            </div>
+
+            <a href="/" style="padding:8px 15px;background:#1f4e79;color:white;text-decoration:none;border-radius:5px;">← Назад в Dashboard</a>
+
+            <hr>
+
+            <div style="
+            background:white;
+            padding:20px;
+            border:1px solid #ddd;
+            border-radius:10px;
+            width:600px;
+            ">
+                <h2>Пока нет сохранённых тендеров</h2>
+                <p>Найдите тендер через VK-бота и сохраните его. После этого он появится здесь.</p>
+                <p>Этот раздел нужен для быстрого доступа к интересным закупкам.</p>
+            </div>
+            """
 
     html = """
     <h1>Сохранённые тендеры</h1>
@@ -126,6 +158,56 @@ def tenders_page():
 
     return html
 
+@app.route("/statistics")
+def statistics_page():
+
+    html = """
+    <div style="
+    background:#1f4e79;
+    color:white;
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+    ">
+        <h1>Статистика проекта Tender Helper</h1>
+        <p>Готовность модулей и текущий статус разработки.</p>
+    </div>
+
+    <a href="/" style="padding:8px 15px;background:#1f4e79;color:white;text-decoration:none;border-radius:5px;">← Назад в Dashboard</a>
+
+    <hr>
+
+    <h2>Общая готовность проекта: 89%</h2>
+
+    <table style="
+    border-collapse: collapse;
+    background: white;
+    width: 700px;
+    border: 1px solid #ddd;
+    table-layout: fixed;
+    ">
+
+    <tr style="
+    background: #1f4e79;
+    color: white;
+    ">
+        <th style="padding: 12px;">Модуль</th>
+        <th style="padding: 12px;">Готовность</th>
+    </tr>
+
+    <tr><td style="padding:10px;">VK Bot</td><td style="padding:10px;">95%</td></tr>
+    <tr><td style="padding:10px;">Поиск тендеров</td><td style="padding:10px;">90%</td></tr>
+    <tr><td style="padding:10px;">Подписки</td><td style="padding:10px;">90%</td></tr>
+    <tr><td style="padding:10px;">База данных</td><td style="padding:10px;">95%</td></tr>
+    <tr><td style="padding:10px;">AI-анализ</td><td style="padding:10px;">80%</td></tr>
+    <tr><td style="padding:10px;">Web Panel</td><td style="padding:10px;">75%</td></tr>
+    <tr><td style="padding:10px;">Коммерческая упаковка</td><td style="padding:10px;">20%</td></tr>
+
+    </table>
+    """
+
+    return html
+
 
 @app.route("/")
 def index():
@@ -160,7 +242,7 @@ def index():
 
         <a href="/tenders" style="padding:8px 15px;background:#1f4e79;color:white;text-decoration:none;border-radius:5px;">Тендеры</a>
 
-        <a href="/" style="padding:8px 15px;background:#1f4e79;color:white;text-decoration:none;border-radius:5px;">Статистика</a>
+        <a href="/statistics" style="padding:8px 15px;background:#1f4e79;color:white;text-decoration:none;border-radius:5px;">Статистика</a>
             </nav>
 
     <hr>
