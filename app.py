@@ -1,5 +1,5 @@
 from flask import Flask
-from database import get_all_subscriptions, get_user_queries, get_saved_tenders
+from database import get_all_subscriptions, get_user_queries, get_saved_tenders, get_top_queries
 
 app = Flask(__name__)
 
@@ -161,6 +161,8 @@ def tenders_page():
 @app.route("/statistics")
 def statistics_page():
 
+    top_queries = get_top_queries(10)
+
     html = """
     <div style="
     background:#1f4e79;
@@ -177,7 +179,7 @@ def statistics_page():
 
     <hr>
 
-    <h2>Общая готовность проекта: 89%</h2>
+    <h2>Общая готовность проекта: 90%</h2>
 
     <table style="
     border-collapse: collapse;
@@ -195,17 +197,49 @@ def statistics_page():
         <th style="padding: 12px;">Готовность</th>
     </tr>
 
-    <tr><td style="padding:10px;">VK Bot</td><td style="padding:10px;">95%</td></tr>
-    <tr><td style="padding:10px;">Поиск тендеров</td><td style="padding:10px;">90%</td></tr>
-    <tr><td style="padding:10px;">Подписки</td><td style="padding:10px;">90%</td></tr>
-    <tr><td style="padding:10px;">База данных</td><td style="padding:10px;">95%</td></tr>
-    <tr><td style="padding:10px;">AI-анализ</td><td style="padding:10px;">80%</td></tr>
-    <tr><td style="padding:10px;">Web Panel</td><td style="padding:10px;">75%</td></tr>
-    <tr><td style="padding:10px;">Коммерческая упаковка</td><td style="padding:10px;">20%</td></tr>
+    <tr><td style="padding:10px;">🟢 VK Bot</td><td style="padding:10px;">95%</td></tr>
+
+<tr><td style="padding:10px;">🟢 Поиск тендеров</td><td style="padding:10px;">90%</td></tr>
+
+<tr><td style="padding:10px;">🟢 Подписки</td><td style="padding:10px;">90%</td></tr>
+
+<tr><td style="padding:10px;">🟢 База данных</td><td style="padding:10px;">95%</td></tr>
+
+<tr><td style="padding:10px;">🟡 AI-анализ</td><td style="padding:10px;">80%</td></tr>
+
+<tr><td style="padding:10px;">🟡 Web Panel</td><td style="padding:10px;">88%</td></tr>
+
+<tr><td style="padding:10px;">🔴 Коммерческая упаковка</td><td style="padding:10px;">20%</td></tr>
 
     </table>
     """
+    html += """
+    <hr>
+    <h2>ТОП запросов</h2>
 
+    <table style="
+    border-collapse: collapse;
+    background: white;
+    width: 700px;
+    border: 1px solid #ddd;
+    table-layout: fixed;
+    ">
+
+    <tr style="background: #1f4e79; color: white;">
+        <th style="padding: 12px;">Запрос</th>
+        <th style="padding: 12px;">Количество</th>
+    </tr>
+    """
+
+    for query in top_queries:
+        html += f"""
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 10px; text-align:center;">{query[0]}</td>
+            <td style="padding: 10px; text-align:center;">{query[1]}</td>
+        </tr>
+        """
+
+    html += "</table>"
     return html
 
 

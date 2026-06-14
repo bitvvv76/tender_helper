@@ -127,6 +127,30 @@ def get_user_queries(user_id, limit=5):
 
     return rows
 
+def get_top_queries(limit=10):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            category,
+            COUNT(*) as count
+        FROM search_queries
+        WHERE category IS NOT NULL
+        GROUP BY category
+        ORDER BY count DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+
+    rows = cursor.fetchall()
+
+    connection.close()
+
+    return rows
+
 def get_last_user_query(user_id):
     connection = sqlite3.connect(DB_NAME)
     cursor = connection.cursor()
