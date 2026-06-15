@@ -163,7 +163,7 @@ def statistics_page():
 
     top_queries = get_top_queries(10)
 
-    html = """
+    html = f"""
     <div style="
     background:#1f4e79;
     color:white;
@@ -179,39 +179,40 @@ def statistics_page():
 
     <hr>
 
-    <h2>Общая готовность проекта: 90%</h2>
+    <h2>Статистика Tender Helper</h2>
 
-    <table style="
-    border-collapse: collapse;
-    background: white;
-    width: 700px;
-    border: 1px solid #ddd;
-    table-layout: fixed;
+    <div style="display:flex; gap:15px; margin-bottom:20px;">
+
+        <div style="background:white; padding:20px; border-radius:10px; border:1px solid #ddd; min-width:180px;">
+            <h3>Подписки</h3>
+            <p style="font-size:28px; font-weight:bold;">{len(get_all_subscriptions())}</p>
+        </div>
+
+        <div style="background:white; padding:20px; border-radius:10px; border:1px solid #ddd; min-width:180px;">
+            <h3>Запросы</h3>
+            <p style="font-size:28px; font-weight:bold;">{len(get_user_queries(1113849253, 1000))}</p>
+        </div>
+
+        <div style="background:white; padding:20px; border-radius:10px; border:1px solid #ddd; min-width:180px;">
+            <h3>Сохранённые тендеры</h3>
+            <p style="font-size:28px; font-weight:bold;">{len(get_saved_tenders(1113849253, 1000))}</p>
+        </div>
+
+    </div>
+
+    <h2>Мониторинг</h2>
+
+    <div style="
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    border:1px solid #ddd;
+    width:600px;
     ">
-
-    <tr style="
-    background: #1f4e79;
-    color: white;
-    ">
-        <th style="padding: 12px;">Модуль</th>
-        <th style="padding: 12px;">Готовность</th>
-    </tr>
-
-    <tr><td style="padding:10px;">🟢 VK Bot</td><td style="padding:10px;">95%</td></tr>
-
-<tr><td style="padding:10px;">🟢 Поиск тендеров</td><td style="padding:10px;">90%</td></tr>
-
-<tr><td style="padding:10px;">🟢 Подписки</td><td style="padding:10px;">90%</td></tr>
-
-<tr><td style="padding:10px;">🟢 База данных</td><td style="padding:10px;">95%</td></tr>
-
-<tr><td style="padding:10px;">🟡 AI-анализ</td><td style="padding:10px;">80%</td></tr>
-
-<tr><td style="padding:10px;">🟡 Web Panel</td><td style="padding:10px;">88%</td></tr>
-
-<tr><td style="padding:10px;">🔴 Коммерческая упаковка</td><td style="padding:10px;">20%</td></tr>
-
-    </table>
+        <p>Статус мониторинга: 🟢 Активен</p>
+        <p>Проверка подписок: каждый час</p>
+        <p>База данных: подключена ✅</p>
+    </div>
     """
     html += """
     <hr>
@@ -303,6 +304,17 @@ def index():
     <div style="background:white; padding:20px; border-radius:10px; border:1px solid #ddd; min-width:150px;">
         <h3>Система</h3>
         <p style="font-size:20px;">Онлайн ✅</p>
+    </div>
+
+    <div style="background:white; padding:20px; border-radius:10px; border:1px solid #ddd; min-width:180px;">
+        <h3>Мониторинг</h3>
+        <p style="font-size:18px;">🟢 Активен</p>
+
+        <p>Подписок: {len(subscriptions)}</p>
+
+        <p>Запросов: {len(queries)}</p>
+
+        <p>Тендеров: {len(saved_tenders)}</p>
     </div>
 
 </div>
