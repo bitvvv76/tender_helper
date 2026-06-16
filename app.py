@@ -250,6 +250,7 @@ def index():
     subscriptions = get_all_subscriptions()
     queries = get_user_queries(1113849253, 1000)
     saved_tenders = get_saved_tenders(1113849253, 1000)
+    top_queries = get_top_queries(5)
 
     html = f"""
     <div style="
@@ -354,6 +355,131 @@ def index():
             <td>{sub[2]}</td>
             <td>{sub[3]}</td>
             <td>{f"{sub[4]:,}".replace(",", " ")} ₽</td>
+        </tr>
+        """
+
+    html += "</table>"
+
+    html += """
+    <hr>
+
+    <h2>Последние запросы</h2>
+
+    <table style="
+    border-collapse: collapse;
+    background: white;
+    width: 900px;
+    border: 1px solid #ddd;
+    table-layout: fixed;
+    ">
+
+    <tr style="background: #1f4e79; color: white;">
+        <th style="padding: 12px;">Категория</th>
+        <th style="padding: 12px;">Регион</th>
+        <th style="padding: 12px;">Бюджет</th>
+    </tr>
+    """
+
+    for q in queries[:5]:
+        category = q[0] if q[0] else "—"
+        region = q[1] if q[1] else "—"
+
+        if q[2]:
+            budget = f"{q[2]:,}".replace(",", " ") + " ₽"
+        else:
+            budget = "—"
+
+        html += f"""
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 10px; text-align:center;">{category}</td>
+            <td style="padding: 10px; text-align:center;">{region}</td>
+            <td style="padding: 10px; text-align:center;">{budget}</td>
+        </tr>
+        """
+
+    html += "</table>"
+
+    html += """
+    <hr>
+
+    <h2>Последние сохранённые тендеры</h2>
+    """
+
+    if not saved_tenders:
+        html += """
+        <div style="
+        background:white;
+        padding:20px;
+        border:1px solid #ddd;
+        border-radius:10px;
+        width:600px;
+        ">
+            <p>Пока нет сохранённых тендеров.</p>
+            <p>Когда вы сохраните тендер через VK-бота, он появится здесь.</p>
+        </div>
+        """
+    else:
+        html += """
+        <table style="
+        border-collapse: collapse;
+        background: white;
+        width: 900px;
+        border: 1px solid #ddd;
+        table-layout: fixed;
+        ">
+
+        <tr style="background: #1f4e79; color: white;">
+            <th style="padding: 12px;">Название</th>
+            <th style="padding: 12px;">Цена</th>
+            <th style="padding: 12px;">Заказчик</th>
+        </tr>
+        """
+
+        for tender in saved_tenders[:5]:
+            title = tender[0] if tender[0] else "—"
+            price = tender[1]
+
+            if price:
+                price_text = f"{price:,.2f}".replace(",", " ") + " ₽"
+            else:
+                price_text = "—"
+
+            customer = tender[2] if tender[2] else "—"
+
+            html += f"""
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 10px; text-align:center;">{title}</td>
+                <td style="padding: 10px; text-align:center;">{price_text}</td>
+                <td style="padding: 10px; text-align:center;">{customer}</td>
+            </tr>
+            """
+
+        html += "</table>"
+
+    html += """
+    <hr>
+
+    <h2>ТОП запросов</h2>
+
+    <table style="
+    border-collapse: collapse;
+    background: white;
+    width: 700px;
+    border: 1px solid #ddd;
+    table-layout: fixed;
+    ">
+
+    <tr style="background: #1f4e79; color: white;">
+        <th style="padding: 12px;">Запрос</th>
+        <th style="padding: 12px;">Количество</th>
+    </tr>
+    """
+
+    for query in top_queries:
+        html += f"""
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 10px; text-align:center;">{query[0]}</td>
+            <td style="padding: 10px; text-align:center;">{query[1]}</td>
         </tr>
         """
 
