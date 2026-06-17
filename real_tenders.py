@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
@@ -39,6 +40,47 @@ def extract_price(text):
     price_number = price_text.replace(" ", "").replace(",", ".")
 
     return float(price_number)
+
+def extract_deadline(text):
+    match = re.search(
+        r"Окончание подачи заявок\s+(\d{2}\.\d{2}\.\d{4})",
+        text,
+    )
+
+    if not match:
+        return None
+
+    deadline_text = match.group(1)
+
+    try:
+        deadline_date = datetime.strptime(
+            deadline_text,
+            "%d.%m.%Y",
+        ).date()
+    except ValueError:
+        return None
+
+    return deadline_date
+
+
+def is_tender_closed(text, deadline):
+    closed_statuses = (
+        "Определение поставщика завершено",
+        "Подача заявок завершена",
+        "Закупка завершена",
+        "Закупка отменена",
+        "Электронный аукцион отменен",
+        "Электронный аукцион отменён",
+        "Не состоялась",
+    )
+
+    if any(status.lower() in text.lower() for status in closed_statuses):
+        return True
+
+    if deadline and deadline < datetime.now().date():
+        return True
+
+    return False
 
 def get_region_keywords(region):
     if not region:
@@ -141,6 +183,10 @@ def search_real_tenders(category, region=None, budget=None, limit=5):
 
     for card in cards:
         text = clean_text(card.get_text(" ", strip=True))
+        deadline = extract_deadline(text)
+
+        if is_tender_closed(text, deadline):
+            continue
 
         region_keywords = get_region_keywords(region)
 
@@ -198,6 +244,30 @@ def search_real_tenders(category, region=None, budget=None, limit=5):
         if title == "Не найден" or customer == "Не найден":
             continue
 
+        # === ФИНАЛЬНАЯ ОЧИСТКА КАЧЕСТВА ===
+
+        # 1. слишком короткий заголовок
+        if len(title) < 10:
+            continue
+
+        # 2. подозрительно низкая цена или None
+        if price is None or price <= 0:
+            continue
+
+        # 3. нет ссылки
+        if tender_url == "Ссылка не найдена":
+            continue
+
+        # 4. нет номера тендера
+        if number == "Не найден":
+            continue
+
+        # 5. отсекаем мусорные тендеры по ключевым словам
+        bad_words = ["отмена", "несостоялся", "архив", "протокол"]
+
+        if any(word in text.lower() for word in bad_words):
+            continue
+
         tender = {
             "title": title,
             "region": region or "Регион не указан",
@@ -206,6 +276,7 @@ def search_real_tenders(category, region=None, budget=None, limit=5):
             "url": tender_url,
             "source": f"ЕИС {law}",
             "number": number,
+            "deadline": deadline.isoformat() if deadline else None,
             "relevance_score": relevance_score,
         }
 
@@ -245,3 +316,4 @@ def format_real_tenders(tenders):
         )
 
     return "\n".join(lines)
+

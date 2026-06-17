@@ -54,6 +54,20 @@ def init_db():
         """
     )
 
+    cursor.execute("PRAGMA table_info(last_found_tenders)")
+    columns = {
+        row[1]
+        for row in cursor.fetchall()
+    }
+
+    if "deadline" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE last_found_tenders
+            ADD COLUMN deadline TEXT
+            """
+        )
+
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS subscriptions (
@@ -285,9 +299,10 @@ def save_last_found_tenders(user_id, tenders):
                 customer,
                 url,
                 source,
-                number
+                number,
+                deadline
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -298,6 +313,7 @@ def save_last_found_tenders(user_id, tenders):
                 tender.get("url"),
                 tender.get("source"),
                 tender.get("number"),
+                tender.get("deadline"),
             ),
         )
 
