@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Tender Helper — мониторинг тендеров</title>
+
+    <link rel="stylesheet" href="/static/style.css?v=3">
+</head>
+
+<body>
+    <div class="page">
+        <header class="hero">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    Production MVP
+                </div>
+
+                <h1>
+                    Tender Helper
+                </h1>
+
+                <p class="hero-subtitle">
+                    Сервис мониторинга актуальных тендеров для малого бизнеса.
+                    Помогает быстро находить свежие закупки, проверять сроки подачи заявок
+                    и не терять подходящие возможности.
+                </p>
+
+                <div class="hero-actions">
+                    <a href="#tenders" class="primary-action">
+                        Смотреть тендеры
+                    </a>
+
+                    <span class="secondary-note">
+                        ЕИС 44-ФЗ / 223-ФЗ · SQLite · FastAPI · VPS
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <main class="container">
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="results-count">
+                        Найдено тендеров: 0
+                    </div>
+                    <div class="stat-label">
+                        актуальные закупки с действующим сроком подачи заявок
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-value">
+                        ЕИС
+                    </div>
+                    <div class="stat-label">
+                        источники 44-ФЗ и 223-ФЗ
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-value">
+                        MVP
+                    </div>
+                    <div class="stat-label">
+                        рабочая версия сервиса на VPS
+                    </div>
+                </div>
+            </section>
+
+            <section class="toolbar" id="tenders">
+                <div class="toolbar-header">
+                    <div>
+                        <h2>
+                            Актуальные тендеры
+                        </h2>
+
+                        <p>
+                            Используйте поиск, диапазон цены и фильтр по источнику,
+                            чтобы быстро найти подходящие закупки.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="search-panel">
+                    <label for="search-input">
+                        Поиск по тендерам
+                    </label>
+
+                    <input
+                        id="search-input"
+                        type="text"
+                        placeholder="Название, заказчик или номер закупки"
+                        autocomplete="off"
+                    >
+
+                    <div class="filter-row">
+                        <input
+                            id="price-from"
+                            type="number"
+                            placeholder="Цена от"
+                        >
+
+                        <input
+                            id="price-to"
+                            type="number"
+                            placeholder="Цена до"
+                        >
+
+                        <select id="sort-select">
+                            <option value="default">
+                                Умная сортировка
+                            </option>
+                            <option value="price_asc">
+                                Сначала дешёвые
+                            </option>
+                            <option value="price_desc">
+                                Сначала дорогие
+                            </option>
+                            <option value="deadline">
+                                Сначала срочные
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="source-filter">
+                        <button
+                            type="button"
+                            class="source-btn active"
+                            data-source="all"
+                        >
+                            Все
+                        </button>
+
+                        <button
+                            type="button"
+                            class="source-btn"
+                            data-source="44"
+                        >
+                            ЕИС 44-ФЗ
+                        </button>
+
+                        <button
+                            type="button"
+                            class="source-btn"
+                            data-source="223"
+                        >
+                            ЕИС 223-ФЗ
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tenders-section">
+                <div id="list" class="tender-list">
+                    Загрузка...
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            Tender Helper MVP — демонстрационная версия сервиса мониторинга тендеров.
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
