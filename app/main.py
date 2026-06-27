@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
-from real_tenders import search_real_tenders
+
 
 
 
@@ -236,6 +236,18 @@ def search_tenders(
     budget: float | None = None,
     limit: int = 5,
 ):
+    database_path = Path(DB_PATH)
+
+    if not database_path.exists():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "count": 0,
+                "tenders": [],
+                "error": "База данных тендеров временно недоступна.",
+            },
+        )
+
     try:
         if not query or len(query.strip()) < 3:
             return JSONResponse(
@@ -250,15 +262,103 @@ def search_tenders(
         if limit < 1:
             limit = 1
 
-        if limit > 10:
-            limit = 10
+        if limit > 20:
+            limit = 20
 
-        tenders = search_real_tenders(
-            category=query.strip(),
-            region=region.strip() if region else None,
-            budget=budget,
-            limit=limit,
-        )
+        search_text = f"%{query.strip().lower()}%"
+
+        sql = """
+            SELECT
+                title,
+                price,
+                customer,
+                url,
+                source,
+                number,
+                deadline
+            FROM last_found_tenders
+            WHERE
+                (
+                    lower(COALESCE(title, '')) LIKE ?
+                    OR lower(COALESCE(customer, '')) LIKE ?
+                    OR lower(COALESCE(number, '')) LIKE ?
+                    OR lower(COALESCE(source, '')) LIKE ?
+                )
+        """
+        params = [
+            search_text,
+            search_text,
+            search_text,
+            search_text,
+        ]
+
+        if region and region.strip():
+            region_text = f"%{region.strip().lower()}%"
+
+            sql += """
+                AND (
+                    lower(COALESCE(title, '')) LIKE ?
+                    OR lower(COALESCE(customer, '')) LIKE ?
+                    OR lower(COALESCE(source, '')) LIKE ?
+                )
+            """
+
+            params.extend(
+                [
+                    region_text,
+                    region_text,
+                    region_text,
+                ]
+            )
+
+        if budget is not None:
+            sql += """
+                AND price <= ?
+            """
+
+            params.append(budget)
+
+        sql += """
+            ORDER BY
+                CASE
+                    WHEN deadline IS NULL OR TRIM(deadline) = '' THEN 1
+                    ELSE 0
+                END,
+                date(deadline) ASC,
+                price ASC
+            LIMIT ?
+        """
+
+        params.append(limit)
+
+        connection = sqlite3.connect(DB_PATH)
+        connection.row_factory = sqlite3.Row
+
+        try:
+            cursor = connection.cursor()
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+        finally:
+            connection.close()
+
+        tenders = []
+
+        for row in rows:
+            tenders.append(
+                {
+                    "title": row["title"] or "Без названия",
+                    "price": (
+                        row["price"]
+                        if row["price"] is not None
+                        else 0
+                    ),
+                    "customer": row["customer"] or "Заказчик не указан",
+                    "url": row["url"] or "",
+                    "source": row["source"] or "Источник не указан",
+                    "number": row["number"] or "Номер не указан",
+                    "deadline": row["deadline"] or "",
+                }
+            )
 
         return {
             "count": len(tenders),
@@ -274,10 +374,10 @@ def search_tenders(
             content={
                 "count": 0,
                 "tenders": [],
-                "error": "Не удалось выполнить поиск тендеров.",
+                "error": "Не удалось выполнить поиск тендеров по базе.",
             },
         )
-
+    
 # =========================================================
 # ДИАГНОСТИКА БАЗЫ
 # =========================================================
@@ -289,7 +389,6 @@ def debug_db(token: str = ""):
         return access_error
 
     connection = sqlite3.connect(DB_PATH)
-    
 
     try:
         cursor = connection.cursor()
@@ -314,7 +413,6 @@ def debug_db(token: str = ""):
 
     finally:
         connection.close()
-
 
 # =========================================================
 # СТРУКТУРА ТАБЛИЦЫ
