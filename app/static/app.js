@@ -34,11 +34,67 @@ function connectSearch() {
     const priceToInput = document.getElementById("price-to");
     const sortSelect = document.getElementById("sort-select");
     const sourceButtons = document.querySelectorAll(".source-btn");
+    const searchButton = document.getElementById("search-button");
     let selectedSource = "all";
 
     if (!searchInput || !priceFromInput || !priceToInput || !sortSelect) {
         return;
     }
+
+    const runServerSearch = () => {
+        const query = searchInput.value.trim();
+        const budget = priceToInput.value.trim();
+
+        if (!query || query.length < 3) {
+            renderTenders(allTenders);
+            return;
+        }
+
+        const params = new URLSearchParams();
+        params.set("query", query);
+
+        if (budget) {
+            params.set("budget", budget);
+        }
+
+        const list = document.getElementById("list");
+
+        list.innerHTML = `
+            <div class="message">
+                Идёт поиск тендеров...
+            </div>
+        `;
+
+        fetch(`/search?${params.toString()}`)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Не удалось выполнить поиск тендеров");
+                }
+
+                return response.json();
+            })
+            .then((data) => {
+                allTenders = data.tenders || [];
+                renderTenders(allTenders);
+            })
+            .catch((error) => {
+                list.innerHTML = `
+                    <div class="error">
+                        ${error.message}
+                    </div>
+                `;
+            });
+    };
+
+    if (searchButton) {
+        searchButton.addEventListener("click", runServerSearch);
+    }
+
+    searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            runServerSearch();
+        }
+    });
 
     sourceButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
