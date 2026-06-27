@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
+from real_tenders import search_real_tenders
 
 
 
@@ -224,6 +225,58 @@ def get_tenders():
     finally:
         if connection is not None:
             connection.close()
+
+# =========================================================
+# ПОИСК РЕАЛЬНЫХ ТЕНДЕРОВ ИЗ ЕИС
+# =========================================================
+@app.get("/search")
+def search_tenders(
+    query: str,
+    region: str | None = None,
+    budget: float | None = None,
+    limit: int = 5,
+):
+    try:
+        if not query or len(query.strip()) < 3:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "count": 0,
+                    "tenders": [],
+                    "error": "Введите поисковый запрос минимум из 3 символов.",
+                },
+            )
+
+        if limit < 1:
+            limit = 1
+
+        if limit > 10:
+            limit = 10
+
+        tenders = search_real_tenders(
+            category=query.strip(),
+            region=region.strip() if region else None,
+            budget=budget,
+            limit=limit,
+        )
+
+        return {
+            "count": len(tenders),
+            "tenders": tenders,
+            "error": None,
+        }
+
+    except Exception:
+        logger.exception("Ошибка поиска тендеров в /search")
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "count": 0,
+                "tenders": [],
+                "error": "Не удалось выполнить поиск тендеров.",
+            },
+        )
 
 # =========================================================
 # ДИАГНОСТИКА БАЗЫ
