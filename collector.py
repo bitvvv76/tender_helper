@@ -125,12 +125,25 @@ def collect_all_tenders(dry_run=True):
         print(f"Budget: {budget}")
         print(f"Limit: {limit}")
 
-        tenders = search_real_tenders(
+        eis_tenders = search_real_tenders(
             category=category,
             region=region,
             budget=budget,
             limit=limit,
         )
+
+        sber_tenders = search_sber_tenders(
+            category=category,
+            region=region,
+            budget=budget,
+            limit=limit,
+        )
+
+        tenders = eis_tenders + sber_tenders
+
+        print(f"ЕИС найдено: {len(eis_tenders)}")
+        print(f"Сбер А найдено: {len(sber_tenders)}")
+        print(f"Всего найдено: {len(tenders)}")
 
         print(f"Found tenders: {len(tenders)}")
 
