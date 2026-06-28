@@ -290,6 +290,155 @@ def make_tender_dedupe_key(tender):
 
     return f"title_price:{title}:{price}"
 
+def save_collected_tenders(tenders, user_id=0):
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
+
+    now = datetime.now().isoformat(timespec="seconds")
+    saved_count = 0
+    updated_count = 0
+    skipped_count = 0
+
+    seen_keys = set()
+    unique_tenders = []
+
+    for tender in tenders:
+        dedupe_key = make_tender_dedupe_key(tender)
+
+        if dedupe_key in seen_keys:
+            skipped_count += 1
+            continue
+
+        seen_keys.add(dedupe_key)
+        unique_tenders.append(tender)
+
+    for tender in unique_tenders:
+        number = (tender.get("number") or "").strip()
+        url = (tender.get("url") or "").strip()
+
+        existing_tender = None
+
+        if number:
+            cursor.execute(
+                """
+                SELECT id
+                FROM last_found_tenders
+                WHERE number = ?
+                LIMIT 1
+                """,
+                (number,),
+            )
+            existing_tender = cursor.fetchone()
+
+        if not existing_tender and url:
+            cursor.execute(
+                """
+                SELECT id
+                FROM last_found_tenders
+                WHERE url = ?
+                LIMIT 1
+                """,
+                (url,),
+            )
+            existing_tender = cursor.fetchone()
+
+        if existing_tender:
+            tender_id = existing_tender[0]
+
+            cursor.execute(
+                """
+                UPDATE last_found_tenders
+                SET
+                    user_id = ?,
+                    title = ?,
+                    price = ?,
+                    customer = ?,
+                    url = ?,
+                    source = ?,
+                    number = ?,
+                    deadline = ?,
+                    status = 'active',
+                    updated_at = ?,
+                    last_seen_at = ?
+                WHERE id = ?
+                """,
+                (
+                    user_id,
+                    tender.get("title"),
+                    tender.get("price"),
+                    tender.get("customer"),
+                    tender.get("url"),
+                    tender.get("source"),
+                    tender.get("number"),
+                    tender.get("deadline"),
+                    now,
+                    now,
+                    tender_id,
+                ),
+            )
+
+            updated_count += 1
+            continue
+
+        cursor.execute(
+            """
+            SELECT COALESCE(MAX(position), 0) + 1
+            FROM last_found_tenders
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        )
+
+        next_position = cursor.fetchone()[0]
+
+        cursor.execute(
+            """
+            INSERT INTO last_found_tenders (
+                user_id,
+                position,
+                title,
+                price,
+                customer,
+                url,
+                source,
+                number,
+                deadline,
+                status,
+                created_at,
+                updated_at,
+                last_seen_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                next_position,
+                tender.get("title"),
+                tender.get("price"),
+                tender.get("customer"),
+                tender.get("url"),
+                tender.get("source"),
+                tender.get("number"),
+                tender.get("deadline"),
+                "active",
+                now,
+                now,
+                now,
+            ),
+        )
+
+        saved_count += 1
+
+    connection.commit()
+    connection.close()
+
+    return {
+        "saved": saved_count,
+        "updated": updated_count,
+        "skipped": skipped_count,
+        "total": len(unique_tenders),
+    }
+
 
 def save_last_found_tenders(user_id, tenders):
     connection = sqlite3.connect(DB_NAME)

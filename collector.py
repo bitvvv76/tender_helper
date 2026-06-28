@@ -1,7 +1,7 @@
 import argparse
 from datetime import datetime
 
-from database import save_last_found_tenders
+from database import save_collected_tenders
 from real_tenders import search_real_tenders
 
 
@@ -78,13 +78,18 @@ def collect_tenders(category, region=None, budget=None, limit=5, dry_run=True):
         print("\nNo changes applied.")
         return len(tenders)
 
-    save_last_found_tenders(
-        COLLECTOR_USER_ID,
+    result = save_collected_tenders(
         tenders,
+        user_id=COLLECTOR_USER_ID,
     )
 
-    print(f"\nSaved tenders: {len(tenders)}")
-    return len(tenders)
+    print("\nSave result:")
+    print(f"Saved: {result['saved']}")
+    print(f"Updated: {result['updated']}")
+    print(f"Skipped duplicates: {result['skipped']}")
+    print(f"Total unique: {result['total']}")
+
+    return result["total"]
 
 def collect_all_tenders(dry_run=True):
     print("=== Tender collector: all queries ===")
@@ -125,13 +130,18 @@ def collect_all_tenders(dry_run=True):
         print("No changes applied.")
         return len(all_tenders)
 
-    save_last_found_tenders(
-        COLLECTOR_USER_ID,
+    result = save_collected_tenders(
         all_tenders,
+        user_id=COLLECTOR_USER_ID,
     )
 
-    print(f"Saved tenders: {len(all_tenders)}")
-    return len(all_tenders)
+    print("Save result:")
+    print(f"Saved: {result['saved']}")
+    print(f"Updated: {result['updated']}")
+    print(f"Skipped duplicates: {result['skipped']}")
+    print(f"Total unique: {result['total']}")
+
+    return result["total"]
 
 
 def main():
