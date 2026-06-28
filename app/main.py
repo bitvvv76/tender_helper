@@ -134,7 +134,8 @@ def get_tenders():
                 FROM last_found_tenders
 
                 WHERE
-                    deadline IS NOT NULL
+                    COALESCE(status, 'active') = 'active'
+                    AND deadline IS NOT NULL
                     AND TRIM(deadline) != ''
                     AND date(deadline) >= date(
                         'now',
@@ -278,7 +279,8 @@ def search_tenders(
                 deadline
             FROM last_found_tenders
             WHERE
-                (
+                COALESCE(status, 'active') = 'active'
+                AND (
                     lower(COALESCE(title, '')) LIKE ?
                     OR lower(COALESCE(customer, '')) LIKE ?
                     OR lower(COALESCE(number, '')) LIKE ?
