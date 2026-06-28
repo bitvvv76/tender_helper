@@ -3,6 +3,7 @@ from datetime import datetime
 
 from database import save_collected_tenders
 from real_tenders import search_real_tenders
+from sber_ast import search_sber_tenders
 
 
 COLLECTOR_USER_ID = 0
@@ -57,12 +58,25 @@ def collect_tenders(category, region=None, budget=None, limit=5, dry_run=True):
     print(f"Limit: {limit}")
     print(f"Dry run: {dry_run}")
 
-    tenders = search_real_tenders(
+    eis_tenders = search_real_tenders(
         category=category,
         region=region,
         budget=budget,
         limit=limit,
     )
+
+    sber_tenders = search_sber_tenders(
+        category=category,
+        region=region,
+        budget=budget,
+        limit=limit,
+    )
+
+    tenders = eis_tenders + sber_tenders
+
+    print(f"ЕИС найдено: {len(eis_tenders)}")
+    print(f"Сбер А найдено: {len(sber_tenders)}")
+    print(f"Всего найдено: {len(tenders)}")
 
     print(f"Found tenders: {len(tenders)}")
 
