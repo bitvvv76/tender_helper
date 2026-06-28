@@ -276,6 +276,21 @@ def get_saved_tenders(user_id, limit=10):
 
     return rows
 
+def make_tender_dedupe_key(tender):
+    number = (tender.get("number") or "").strip()
+    url = (tender.get("url") or "").strip()
+    title = (tender.get("title") or "").strip().lower()
+    price = tender.get("price")
+
+    if number:
+        return f"number:{number}"
+
+    if url:
+        return f"url:{url}"
+
+    return f"title_price:{title}:{price}"
+
+
 def save_last_found_tenders(user_id, tenders):
     connection = sqlite3.connect(DB_NAME)
     cursor = connection.cursor()
@@ -288,7 +303,20 @@ def save_last_found_tenders(user_id, tenders):
         (user_id,),
     )
 
-    for position, tender in enumerate(tenders, start=1):
+    now = datetime.now().isoformat(timespec="seconds")
+    seen_keys = set()
+    unique_tenders = []
+
+    for tender in tenders:
+        dedupe_key = make_tender_dedupe_key(tender)
+
+        if dedupe_key in seen_keys:
+            continue
+
+        seen_keys.add(dedupe_key)
+        unique_tenders.append(tender)
+
+    for position, tender in enumerate(unique_tenders, start=1):
         cursor.execute(
             """
             INSERT INTO last_found_tenders (
@@ -300,9 +328,13 @@ def save_last_found_tenders(user_id, tenders):
                 url,
                 source,
                 number,
-                deadline
+                deadline,
+                status,
+                created_at,
+                updated_at,
+                last_seen_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -314,6 +346,10 @@ def save_last_found_tenders(user_id, tenders):
                 tender.get("source"),
                 tender.get("number"),
                 tender.get("deadline"),
+                "active",
+                now,
+                now,
+                now,
             ),
         )
 
