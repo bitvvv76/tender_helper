@@ -1,5 +1,6 @@
 import json
-import requests
+import subprocess
+import platform
 from bs4 import BeautifulSoup
 
 
@@ -7,216 +8,320 @@ BASE_URL = "https://etpgpb.ru"
 URL = "https://etpgpb.ru/procedures/"
 
 
-# =========================
-# FETCH HTML (FIXED)
-# =========================
-def fetch_html(use_local=False, local_file="gpb_ast.html"):
+def fetch_html():
     """
-    GPB безопасный режим:
-    - Windows: можно тянуть сеть
-    - VPS: используем локальный HTML (стабильно)
+    Получаем HTML страницы Газпромбанк АСТ.
+
+    Windows:
+    - используем curl.exe --ssl-no-revoke, потому что requests падает на SSL.
+
+    Linux/VPS:
+    - используем обычный curl -L.
     """
 
-    # 🟢 VPS / fallback режим
-    if use_local:
-        try:
-            with open(local_file, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            print("GPB LOCAL FILE ERROR:", str(e))
-            return ""
+    system_name = platform.system().lower()
 
-    # 🟡 LIVE режим (Windows)
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8",
-    }
+    if "windows" in system_name:
+        command = [
+            "curl.exe",
+            "--ssl-no-revoke",
+            "-L",
+            URL,
+        ]
+    else:
+        command = [
+            "curl",
+            "-L",
+            URL,
+        ]
 
     try:
-        response = requests.get(URL, headers=headers, timeout=40)
-        response.raise_for_status()
-        return response.text
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=60,
+        )
+
+        if result.returncode != 0:
+            print("GPB CURL ERROR:", result.stderr)
+            return ""
+
+        return result.stdout
+
     except Exception as e:
-        print("GPB NETWORK ERROR:", str(e))
+        print("GPB FETCH ERROR:", str(e))
         return ""
 
 
-# =========================
-# HELPERS
-# =========================
-def resolve_value(data, value):
-    if isinstance(value, int) and 0 <= value < len(data):
-        resolved = data[value]
+def safe_get(data, index, default=None):
+    """
+    Безопасно достаём значение из Nuxt-массива по индексу.
+    """
+    try:
+        if isinstance(index, int) and 0 <= index < len(data):
+            return data[index]
+        return default
+    except Exception:
+        return default
 
-        if isinstance(resolved, (str, int, float, bool)) or resolved is None:
-            return resolved
 
-        if isinstance(resolved, list):
-            return [resolve_value(data, item) for item in resolved]
+def normalize_url(value):
+    """
+    Приводим ссылку к полному виду.
+    """
+    if not value:
+        return BASE_URL
+
+    value = str(value)
+
+    if value.startswith("http"):
+        return value
+
+    if value.startswith("/"):
+        return BASE_URL + value
+
+    return BASE_URL + "/" + value
+
+
+def normalize_price(value):
+    """
+    Приводим цену к числу, если возможно.
+    """
+    if value is None:
+        return None
+
+    try:
+        if isinstance(value, (int, float)):
+            return float(value)
+
+        value = str(value)
+        value = value.replace(" ", "")
+        value = value.replace("\xa0", "")
+        value = value.replace(",", ".")
+
+        return float(value)
+    except Exception:
+        return None
+
+
+def extract_nuxt_data(html):
+    """
+    Достаём JSON из <script id="__NUXT_DATA__">.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    script = soup.find("script", {"id": "__NUXT_DATA__"})
+
+    if not script:
+        print("GPB ERROR: __NUXT_DATA__ not found")
+        return None
+
+    raw_json = script.string or script.get_text()
+
+    if not raw_json:
+        print("GPB ERROR: empty __NUXT_DATA__")
+        return None
+
+    try:
+        return json.loads(raw_json)
+    except Exception as e:
+        print("GPB JSON ERROR:", str(e))
+        return None
+
+
+def find_procedure_objects(obj):
+    """
+    Рекурсивно ищем словари, похожие на тендеры Газпромбанк АСТ.
+    """
+    found = []
+
+    if isinstance(obj, dict):
+        keys = set(obj.keys())
+
+        tender_keys = {
+            "registry_number",
+            "title",
+            "platform_url",
+            "company_name",
+            "amount",
+            "date_published",
+            "end_registration",
+        }
+
+        if keys.intersection(tender_keys):
+            if "registry_number" in keys or "title" in keys:
+                found.append(obj)
+
+        for value in obj.values():
+            found.extend(find_procedure_objects(value))
+
+    elif isinstance(obj, list):
+        for item in obj:
+            found.extend(find_procedure_objects(item))
+
+    return found
+
+
+def resolve_nuxt_value(data, value):
+    """
+    В Nuxt JSON часто значения лежат как индексы массива.
+    Эта функция пытается получить реальное значение.
+    """
+    if isinstance(value, int):
+        resolved = safe_get(data, value, value)
+
+        if resolved == value:
+            return value
+
+        if isinstance(resolved, int):
+            second_resolved = safe_get(data, resolved, resolved)
+            return second_resolved
 
         return resolved
 
     return value
 
 
-def normalize_url(url):
-    if not url:
-        return ""
-
-    if isinstance(url, str) and url.startswith("http"):
-        return url
-
-    if isinstance(url, str) and url.startswith("/"):
-        return BASE_URL + url
-
-    return url
-
-
-# =========================
-# PARSER
-# =========================
 def parse_gpb_tenders(html):
-    soup = BeautifulSoup(html, "html.parser")
-    script = soup.find("script", {"id": "__NUXT_DATA__"})
+    """
+    Парсим тендеры Газпромбанк АСТ из Nuxt JSON.
+    """
+    data = extract_nuxt_data(html)
 
-    if not script:
-        print("GPB: NUXT DATA NOT FOUND")
+    if not data:
         return []
 
-    data = json.loads(script.text)
+    raw_objects = find_procedure_objects(data)
 
     tenders = []
     seen_numbers = set()
 
-    def walk(obj):
-        if isinstance(obj, dict):
-            keys = set(obj.keys())
+    for item in raw_objects:
+        try:
+            number = resolve_nuxt_value(data, item.get("registry_number"))
+            title = resolve_nuxt_value(data, item.get("title"))
+            url = resolve_nuxt_value(data, item.get("platform_url"))
+            customer = resolve_nuxt_value(data, item.get("company_name"))
+            price = resolve_nuxt_value(data, item.get("amount"))
+            published = resolve_nuxt_value(data, item.get("date_published"))
+            deadline = resolve_nuxt_value(data, item.get("end_registration"))
 
-            if {
-                "registry_number",
-                "title",
-                "platform_url",
-                "company_name",
-                "end_registration",
-            }.issubset(keys):
+            if not number:
+                continue
 
-                registry_number = resolve_value(data, obj.get("registry_number"))
+            if not title:
+                continue
 
-                if registry_number and registry_number not in seen_numbers:
-                    seen_numbers.add(registry_number)
+            if "поиск тендеров" in str(title).lower():
+                continue
 
-                    title = resolve_value(data, obj.get("title"))
-                    platform_url = resolve_value(data, obj.get("platform_url"))
-                    truncated_path = resolve_value(data, obj.get("truncated_path"))
-                    company_name = resolve_value(data, obj.get("company_name"))
-                    amount = resolve_value(data, obj.get("amount"))
-                    currency_name = resolve_value(data, obj.get("currency_name"))
-                    date_published = resolve_value(data, obj.get("date_published"))
-                    end_registration = resolve_value(data, obj.get("end_registration"))
-                    lot_regions = resolve_value(data, obj.get("lot_regions"))
-                    procedure_type_name = resolve_value(data, obj.get("procedure_type_name"))
+            number = str(number) if number else ""
+            title = str(title) if title else "Без названия"
 
-                    url = normalize_url(platform_url or truncated_path)
+            if number in seen_numbers:
+                continue
 
-                    tenders.append({
-                        "source": "Газпромбанк АСТ",
-                        "number": str(registry_number),
-                        "title": title or "",
-                        "price": str(amount or ""),
-                        "customer": company_name or "",
-                        "url": url,
-                        "deadline": end_registration or "",
-                        "region": str(lot_regions or ""),
-                        "type": procedure_type_name or "",
-                    })
+            seen_numbers.add(number)
 
-            for value in obj.values():
-                walk(value)
+            tender = {
+                "title": title,
+                "price": normalize_price(price),
+                "customer": str(customer) if customer else "",
+                "url": normalize_url(url),
+                "source": "Газпромбанк АСТ",
+                "number": number,
+                "deadline": str(deadline) if deadline else "",
+                "published": str(published) if published else "",
+                "region": "",
+                "relevance_score": 80,
+            }
 
-        elif isinstance(obj, list):
-            for item in obj:
-                walk(item)
+            tenders.append(tender)
 
-    walk(data)
+        except Exception as e:
+            print("GPB PARSE ITEM ERROR:", str(e))
+            continue
+
     return tenders
 
 
-# =========================
-# CORE FETCH
-# =========================
-def get_gpb_tenders(limit=10, use_local=True):
-    html = fetch_html(use_local=use_local)
+def get_gpb_tenders(limit=10):
+    """
+    Получаем список тендеров Газпромбанк АСТ.
+    """
+    html = fetch_html()
 
     if not html:
         return []
 
     tenders = parse_gpb_tenders(html)
+
     return tenders[:limit]
 
 
-# =========================
-# SEARCH (collector entry)
-# =========================
-def search_gpb_tenders(category, region=None, budget=None, limit=5):
+def search_gpb_tenders(category=None, region=None, budget=None, limit=5):
     """
-    GPB фильтрация для collector.py
+    Функция для collector.py.
+
+    category — категория поиска
+    region — регион
+    budget — максимальный бюджет
+    limit — лимит результатов
     """
 
-    # ⚠️ ВАЖНО: VPS-safe режим по умолчанию
-    tenders = get_gpb_tenders(limit=50, use_local=True)
+    try:
+        tenders = get_gpb_tenders(limit=50)
 
-    filtered = []
+        filtered = []
 
-    category_lower = category.lower() if category else ""
-    region_lower = region.lower() if region else ""
+        category_text = str(category).lower() if category else ""
+        region_text = str(region).lower() if region else ""
 
-    for tender in tenders:
-        title = str(tender.get("title", "")).lower()
-        tender_region = str(tender.get("region", "")).lower()
+        for tender in tenders:
+            title = str(tender.get("title", "")).lower()
+            customer = str(tender.get("customer", "")).lower()
+            tender_region = str(tender.get("region", "")).lower()
+            price = tender.get("price")
 
-        if category_lower and category_lower not in title:
-            continue
-
-        if region_lower and region_lower not in tender_region:
-            continue
-
-        if budget:
-            try:
-                price = float(str(tender.get("price", "0")).replace(",", "."))
-                if price > float(budget):
+            if category_text:
+                if category_text not in title and category_text not in customer:
                     continue
-            except ValueError:
-                pass
 
-        filtered.append(tender)
+            if region_text:
+                if region_text not in tender_region and region_text not in title and region_text not in customer:
+                    continue
 
-        if len(filtered) >= limit:
-            break
+            if budget and price:
+                try:
+                    if float(price) > float(budget):
+                        continue
+                except Exception:
+                    pass
 
-    return filtered
+            filtered.append(tender)
+
+            if len(filtered) >= limit:
+                break
+
+        return filtered[:limit]
+
+    except Exception as e:
+        print("GPB SEARCH ERROR:", str(e))
+        return []
 
 
-# =========================
-# TEST RUN
-# =========================
 if __name__ == "__main__":
-    tenders = get_gpb_tenders(limit=10)
+    results = get_gpb_tenders(limit=10)
 
-    print("GPB FOUND:", len(tenders))
+    print("GPB FOUND:", len(results))
 
-    for tender in tenders:
-        print("=" * 80)
-        print("SOURCE:", tender["source"])
-        print("NUMBER:", tender["number"])
-        print("TITLE:", tender["title"])
-        print("TYPE:", tender["type"])
-        print("CUSTOMER:", tender["customer"])
-        print("PRICE:", tender["price"])
-        print("REGION:", tender["region"])
-        print("DEADLINE:", tender["deadline"])
-        print("URL:", tender["url"])
+    for tender in results:
+        print("-" * 80)
+        print("Номер:", tender.get("number"))
+        print("Название:", tender.get("title"))
+        print("Заказчик:", tender.get("customer"))
+        print("Цена:", tender.get("price"))
+        print("Дедлайн:", tender.get("deadline"))
+        print("Ссылка:", tender.get("url"))
