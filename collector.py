@@ -4,6 +4,7 @@ from datetime import datetime
 from database import save_collected_tenders
 from real_tenders import search_real_tenders
 from sber_ast import search_sber_tenders
+from roseltorg import search_roseltorg_tenders
 
 
 COLLECTOR_USER_ID = 0
@@ -72,12 +73,19 @@ def collect_tenders(category, region=None, budget=None, limit=5, dry_run=True):
         limit=limit,
     )
 
-    tenders = eis_tenders + sber_tenders
+    roseltorg_tenders = search_roseltorg_tenders(
+        category=category,
+        region=region,
+        budget=budget,
+        limit=limit,
+    )
+
+    tenders = eis_tenders + sber_tenders + roseltorg_tenders
 
     print(f"ЕИС найдено: {len(eis_tenders)}")
     print(f"Сбер А найдено: {len(sber_tenders)}")
+    print(f"Росэлторг найдено: {len(roseltorg_tenders)}")
     print(f"Всего найдено: {len(tenders)}")
-
     print(f"Found tenders: {len(tenders)}")
 
     for index, tender in enumerate(tenders, start=1):
@@ -139,10 +147,18 @@ def collect_all_tenders(dry_run=True):
             limit=limit,
         )
 
-        tenders = eis_tenders + sber_tenders
+        roseltorg_tenders = search_roseltorg_tenders(
+            category=category,
+            region=region,
+            budget=budget,
+            limit=limit,
+        )
+
+        tenders = eis_tenders + sber_tenders + roseltorg_tenders
 
         print(f"ЕИС найдено: {len(eis_tenders)}")
         print(f"Сбер А найдено: {len(sber_tenders)}")
+        print(f"Росэлторг найдено: {len(roseltorg_tenders)}")
         print(f"Всего найдено: {len(tenders)}")
 
         print(f"Found tenders: {len(tenders)}")
