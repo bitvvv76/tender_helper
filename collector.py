@@ -5,6 +5,7 @@ from database import save_collected_tenders
 from real_tenders import search_real_tenders
 from sber_ast import search_sber_tenders
 from roseltorg import search_roseltorg_tenders
+from gpb_ast import search_gpb_tenders
 
 
 COLLECTOR_USER_ID = 0
@@ -80,13 +81,20 @@ def collect_tenders(category, region=None, budget=None, limit=5, dry_run=True):
         limit=limit,
     )
 
-    tenders = eis_tenders + sber_tenders + roseltorg_tenders
+    gpb_tenders = search_gpb_tenders(
+        category=category,
+        region=region,
+        budget=budget,
+        limit=limit,
+    )
+
+    tenders = eis_tenders + sber_tenders + roseltorg_tenders + gpb_tenders
 
     print(f"ЕИС найдено: {len(eis_tenders)}")
     print(f"Сбер А найдено: {len(sber_tenders)}")
     print(f"Росэлторг найдено: {len(roseltorg_tenders)}")
+    print(f"Газпромбанк АСТ найдено: {len(gpb_tenders)}")
     print(f"Всего найдено: {len(tenders)}")
-    print(f"Found tenders: {len(tenders)}")
 
     for index, tender in enumerate(tenders, start=1):
         print(
@@ -112,6 +120,7 @@ def collect_tenders(category, region=None, budget=None, limit=5, dry_run=True):
     print(f"Total unique: {result['total']}")
 
     return result["total"]
+
 
 def collect_all_tenders(dry_run=True):
     print("=== Tender collector: all queries ===")
@@ -154,14 +163,20 @@ def collect_all_tenders(dry_run=True):
             limit=limit,
         )
 
-        tenders = eis_tenders + sber_tenders + roseltorg_tenders
+        gpb_tenders = search_gpb_tenders(
+            category=category,
+            region=region,
+            budget=budget,
+            limit=limit,
+        )
+
+        tenders = eis_tenders + sber_tenders + roseltorg_tenders + gpb_tenders
 
         print(f"ЕИС найдено: {len(eis_tenders)}")
         print(f"Сбер А найдено: {len(sber_tenders)}")
         print(f"Росэлторг найдено: {len(roseltorg_tenders)}")
+        print(f"Газпромбанк АСТ найдено: {len(gpb_tenders)}")
         print(f"Всего найдено: {len(tenders)}")
-
-        print(f"Found tenders: {len(tenders)}")
 
         for tender in tenders:
             all_tenders.append(tender)
@@ -192,59 +207,26 @@ def main():
         description="Collect tenders and save them to local database."
     )
 
-    parser.add_argument(
-        "--category",
-        default="ремонт кровли",
-        help="Tender search category.",
-    )
-
-    parser.add_argument(
-        "--region",
-        default=None,
-        help="Tender search region.",
-    )
-
-    parser.add_argument(
-        "--budget",
-        type=float,
-        default=None,
-        help="Maximum tender price.",
-    )
-
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=5,
-        help="Maximum tenders to collect.",
-    )
-
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Run collector for all default queries.",
-    )
-
-    parser.add_argument(
-        "--apply",
-        action="store_true",
-        help="Save tenders to database. Without this flag, dry-run mode is used.",
-    )
+    parser.add_argument("--category", default="ремонт кровли")
+    parser.add_argument("--region", default=None)
+    parser.add_argument("--budget", type=float, default=None)
+    parser.add_argument("--limit", type=int, default=5)
+    parser.add_argument("--all", action="store_true")
+    parser.add_argument("--apply", action="store_true")
 
     args = parser.parse_args()
 
     if args.all:
-        collect_all_tenders(
+        collect_all_tenders(dry_run=not args.apply)
+    else:
+        collect_tenders(
+            category=args.category,
+            region=args.region,
+            budget=args.budget,
+            limit=args.limit,
             dry_run=not args.apply,
         )
-        return
 
-    collect_tenders(
-        category=args.category,
-        region=args.region,
-        budget=args.budget,
-        limit=args.limit,
-        dry_run=not args.apply,
-    )
 
 if __name__ == "__main__":
     main()
