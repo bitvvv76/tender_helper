@@ -1,5 +1,5 @@
 import json
-import subprocess
+import requests
 from bs4 import BeautifulSoup
 
 
@@ -7,27 +7,48 @@ BASE_URL = "https://etpgpb.ru"
 URL = "https://etpgpb.ru/procedures/"
 
 
-def fetch_html():
+# =========================
+# FETCH HTML (FIXED)
+# =========================
+def fetch_html(use_local=False, local_file="gpb_ast.html"):
     """
-    Газпромбанк АСТ на Windows может падать через requests из-за SSL.
-    Поэтому используем curl.exe --ssl-no-revoke.
-    На VPS позже проверим отдельно.
+    GPB безопасный режим:
+    - Windows: можно тянуть сеть
+    - VPS: используем локальный HTML (стабильно)
     """
-    result = subprocess.run(
-        ["curl.exe", "--ssl-no-revoke", URL],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=40,
-    )
 
-    if result.returncode != 0:
-        print("GPB CURL ERROR:", result.stderr)
+    # 🟢 VPS / fallback режим
+    if use_local:
+        try:
+            with open(local_file, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            print("GPB LOCAL FILE ERROR:", str(e))
+            return ""
+
+    # 🟡 LIVE режим (Windows)
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8",
+    }
+
+    try:
+        response = requests.get(URL, headers=headers, timeout=40)
+        response.raise_for_status()
+        return response.text
+    except Exception as e:
+        print("GPB NETWORK ERROR:", str(e))
         return ""
 
-    return result.stdout
 
-
+# =========================
+# HELPERS
+# =========================
 def resolve_value(data, value):
     if isinstance(value, int) and 0 <= value < len(data):
         resolved = data[value]
@@ -56,6 +77,9 @@ def normalize_url(url):
     return url
 
 
+# =========================
+# PARSER
+# =========================
 def parse_gpb_tenders(html):
     soup = BeautifulSoup(html, "html.parser")
     script = soup.find("script", {"id": "__NUXT_DATA__"})
@@ -80,6 +104,7 @@ def parse_gpb_tenders(html):
                 "company_name",
                 "end_registration",
             }.issubset(keys):
+
                 registry_number = resolve_value(data, obj.get("registry_number"))
 
                 if registry_number and registry_number not in seen_numbers:
@@ -121,21 +146,29 @@ def parse_gpb_tenders(html):
     return tenders
 
 
-def get_gpb_tenders(limit=10):
-    html = fetch_html()
+# =========================
+# CORE FETCH
+# =========================
+def get_gpb_tenders(limit=10, use_local=True):
+    html = fetch_html(use_local=use_local)
 
     if not html:
         return []
 
     tenders = parse_gpb_tenders(html)
     return tenders[:limit]
+
+
+# =========================
+# SEARCH (collector entry)
+# =========================
 def search_gpb_tenders(category, region=None, budget=None, limit=5):
     """
-    Поиск тендеров Газпромбанк АСТ для collector.py.
-    Пока базовая версия: берём свежие процедуры с площадки,
-    затем мягко фильтруем по категории, региону и бюджету.
+    GPB фильтрация для collector.py
     """
-    tenders = get_gpb_tenders(limit=50)
+
+    # ⚠️ ВАЖНО: VPS-safe режим по умолчанию
+    tenders = get_gpb_tenders(limit=50, use_local=True)
 
     filtered = []
 
@@ -167,6 +200,10 @@ def search_gpb_tenders(category, region=None, budget=None, limit=5):
 
     return filtered
 
+
+# =========================
+# TEST RUN
+# =========================
 if __name__ == "__main__":
     tenders = get_gpb_tenders(limit=10)
 
