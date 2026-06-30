@@ -9,6 +9,7 @@ and can call their search functions in a unified way.
 from importlib import import_module
 
 from sources.registry import get_enabled_sources
+from sources.postprocess import postprocess_tenders
 
 
 def load_source_function(source_config):
@@ -64,4 +65,4 @@ def search_all_sources(category=None, region=None, budget=None, limit=5):
         print(f"{source_name} found: {len(results)}")
         all_results.extend(results)
 
-    return all_results
+    return postprocess_tenders(all_results)
