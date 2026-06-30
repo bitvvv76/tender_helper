@@ -132,14 +132,11 @@ def calculate_relevance_score(tender, category=None):
     """
     Calculate tender relevance score from 0 to 100.
 
-    Scoring v2:
-    - title quality
-    - important keywords
-    - query/category match
-    - price presence
-    - deadline presence
-    - customer presence
-    - source reliability
+    Scoring v3.1:
+    - query/category match is the main factor
+    - exact query match does not automatically give 100
+    - price, deadline, source and metadata are smaller bonuses
+    - score scale should be more spread out
     """
     score = 0
 
@@ -149,15 +146,43 @@ def calculate_relevance_score(tender, category=None):
     source = str(tender.get("source") or "").lower()
     customer = str(tender.get("customer") or "").strip()
     number = str(tender.get("number") or "").strip()
+    category_text = str(category or "").lower().strip()
 
-    # 1. Title quality
+    # 1. Query/category match — main factor
+    if category_text:
+        category_words = [
+            word.strip()
+            for word in category_text.split()
+            if len(word.strip()) >= 3
+        ]
+
+        if category_text in title:
+            score += 30
+        elif category_words:
+            matched_words = 0
+
+            for word in category_words:
+                if word in title:
+                    matched_words += 1
+
+            if matched_words == len(category_words):
+                score += 25
+            elif matched_words > 0:
+                score += 12
+    else:
+        score += 5
+
+    # 2. Title quality
     if title:
-        score += 20
-
-    if len(title) >= 30:
         score += 10
 
-    # 2. Important words in title
+    if len(title) >= 30:
+        score += 5
+
+    if len(title) >= 80:
+        score += 3
+
+    # 3. Important tender words
     important_words = [
         "поставка",
         "ремонт",
@@ -171,30 +196,33 @@ def calculate_relevance_score(tender, category=None):
 
     for word in important_words:
         if word in title:
-            score += 10
+            score += 8
             break
-
-    # 3. Query/category match
-    score += calculate_query_match_score(title, category=category)
 
     # 4. Price quality
     if price and price > 0:
-        score += 20
+        score += 8
 
     if price and price >= 500000:
-        score += 10
+        score += 4
+
+    if price and price >= 3000000:
+        score += 3
+
+    if price and price >= 20000000:
+        score += 2
 
     # 5. Deadline exists
     if deadline:
-        score += 15
+        score += 8
 
     # 6. Customer exists
     if customer:
-        score += 10
+        score += 4
 
     # 7. Number exists
     if number:
-        score += 5
+        score += 4
 
     # 8. Source bonus
     reliable_sources = [
@@ -208,7 +236,7 @@ def calculate_relevance_score(tender, category=None):
 
     for source_name in reliable_sources:
         if source_name in source:
-            score += 5
+            score += 3
             break
 
     if score > 100:
