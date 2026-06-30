@@ -43,6 +43,13 @@ SOURCES_REGISTRY = [
         "module": "tek_torg",
         "function": "search_tek_torg_tenders",
     },
+    {
+        "name": "Фабрикант",
+        "key": "fabrikant",
+        "enabled": False,
+        "module": "fabrikant",
+        "function": "search_fabrikant_tenders",
+    },
 ]
 
 
