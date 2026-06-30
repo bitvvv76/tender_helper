@@ -36,6 +36,13 @@ SOURCES_REGISTRY = [
         "module": "gpb_ast",
         "function": "search_gpb_tenders",
     },
+        {
+        "name": "TEK-Torg",
+        "key": "tek_torg",
+        "enabled": False,
+        "module": "tek_torg",
+        "function": "search_tek_torg_tenders",
+    },
 ]
 
 
