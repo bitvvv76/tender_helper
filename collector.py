@@ -3,6 +3,8 @@ from datetime import datetime
 
 from database import save_collected_tenders
 from sources.loader import search_all_sources
+
+
 COLLECTOR_USER_ID = 0
 
 
@@ -65,8 +67,11 @@ def collect_tenders(category, region=None, budget=None, limit=5, dry_run=True):
     print(f"Всего найдено: {len(tenders)}")
 
     for index, tender in enumerate(tenders, start=1):
+        score = tender.get("relevance_score", 0)
+
         print(
-            f"{index}. {tender.get('number')} | "
+            f"{index}. score={score} | "
+            f"{tender.get('number')} | "
             f"{tender.get('price')} | "
             f"{tender.get('deadline')} | "
             f"{tender.get('title')}"

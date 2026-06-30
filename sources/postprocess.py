@@ -5,6 +5,7 @@ Postprocess module.
 Goal:
 - normalize tenders after all sources
 - remove duplicates
+- calculate relevance score
 - sort results
 - keep collector output stable
 """
@@ -15,18 +16,17 @@ def make_dedup_key(tender):
     Build stable duplicate key for tender.
 
     Priority:
-    1. source + number
+    1. number
     2. url
     3. title + customer
     """
-    source = str(tender.get("source") or "").strip().lower()
     number = str(tender.get("number") or "").strip().lower()
     url = str(tender.get("url") or "").strip().lower()
     title = str(tender.get("title") or "").strip().lower()
     customer = str(tender.get("customer") or "").strip().lower()
 
-    if source and number:
-        return f"source_number:{source}:{number}"
+    if number:
+        return f"number:{number}"
 
     if url:
         return f"url:{url}"
@@ -70,11 +70,6 @@ def normalize_tender(tender):
 
     normalize_price(normalized)
 
-    try:
-        normalized["relevance_score"] = int(normalized.get("relevance_score") or 0)
-    except (TypeError, ValueError):
-        normalized["relevance_score"] = 0
-
     return normalized
 
 
@@ -97,9 +92,111 @@ def deduplicate_tenders(tenders):
     return unique
 
 
+def calculate_relevance_score(tender):
+    """
+    Calculate tender relevance score from 0 to 100.
+
+    First scoring version:
+    - title quality
+    - important keywords
+    - price presence
+    - deadline presence
+    - customer presence
+    - source reliability
+    """
+    score = 0
+
+    title = str(tender.get("title") or "").lower()
+    price = tender.get("price") or 0
+    deadline = tender.get("deadline")
+    source = str(tender.get("source") or "").lower()
+    customer = str(tender.get("customer") or "").strip()
+    number = str(tender.get("number") or "").strip()
+
+    # 1. Title quality
+    if title:
+        score += 20
+
+    if len(title) >= 30:
+        score += 10
+
+    # 2. Important words in title
+    important_words = [
+        "поставка",
+        "ремонт",
+        "строительство",
+        "капитальный ремонт",
+        "услуги",
+        "работы",
+        "монтаж",
+        "оборудование",
+    ]
+
+    for word in important_words:
+        if word in title:
+            score += 10
+            break
+
+    # 3. Price quality
+    if price and price > 0:
+        score += 20
+
+    if price and price >= 500000:
+        score += 10
+
+    # 4. Deadline exists
+    if deadline:
+        score += 15
+
+    # 5. Customer exists
+    if customer:
+        score += 10
+
+    # 6. Number exists
+    if number:
+        score += 5
+
+    # 7. Source bonus
+    reliable_sources = [
+        "еис",
+        "сбер",
+        "росэлторг",
+        "газпромбанк",
+        "тэк",
+        "фабрикант",
+    ]
+
+    for source_name in reliable_sources:
+        if source_name in source:
+            score += 5
+            break
+
+    if score > 100:
+        score = 100
+
+    if score < 0:
+        score = 0
+
+    return score
+
+
+def apply_scoring(tenders):
+    """
+    Apply relevance score to every tender.
+    """
+    scored = []
+
+    for tender in tenders:
+        item = dict(tender)
+        item["relevance_score"] = calculate_relevance_score(item)
+        scored.append(item)
+
+    return scored
+
+
 def sort_tenders(tenders):
     """
-    Sort tenders by relevance score first.
+    Sort tenders by relevance score first, then by price.
     """
     return sorted(
         tenders,
@@ -117,6 +214,7 @@ def postprocess_tenders(tenders):
     """
     normalized = [normalize_tender(tender) for tender in tenders]
     unique = deduplicate_tenders(normalized)
-    sorted_items = sort_tenders(unique)
+    scored = apply_scoring(unique)
+    sorted_items = sort_tenders(scored)
 
     return sorted_items
