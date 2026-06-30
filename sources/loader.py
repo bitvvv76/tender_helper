@@ -65,4 +65,7 @@ def search_all_sources(category=None, region=None, budget=None, limit=5):
         print(f"{source_name} found: {len(results)}")
         all_results.extend(results)
 
-    return postprocess_tenders(all_results)
+    return postprocess_tenders(
+        all_results,
+        category=category,
+    )

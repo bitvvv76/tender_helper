@@ -92,13 +92,50 @@ def deduplicate_tenders(tenders):
     return unique
 
 
-def calculate_relevance_score(tender):
+def calculate_query_match_score(title, category=None):
+    """
+    Calculate how well tender title matches search category/query.
+    """
+    category_text = str(category or "").lower().strip()
+
+    if not category_text:
+        return 0
+
+    category_words = [
+        word.strip()
+        for word in category_text.split()
+        if len(word.strip()) >= 3
+    ]
+
+    if category_text in title:
+        return 25
+
+    if not category_words:
+        return 0
+
+    matched_words = 0
+
+    for word in category_words:
+        if word in title:
+            matched_words += 1
+
+    if matched_words == len(category_words):
+        return 20
+
+    if matched_words > 0:
+        return 10
+
+    return 0
+
+
+def calculate_relevance_score(tender, category=None):
     """
     Calculate tender relevance score from 0 to 100.
 
-    First scoring version:
+    Scoring v2:
     - title quality
     - important keywords
+    - query/category match
     - price presence
     - deadline presence
     - customer presence
@@ -137,26 +174,29 @@ def calculate_relevance_score(tender):
             score += 10
             break
 
-    # 3. Price quality
+    # 3. Query/category match
+    score += calculate_query_match_score(title, category=category)
+
+    # 4. Price quality
     if price and price > 0:
         score += 20
 
     if price and price >= 500000:
         score += 10
 
-    # 4. Deadline exists
+    # 5. Deadline exists
     if deadline:
         score += 15
 
-    # 5. Customer exists
+    # 6. Customer exists
     if customer:
         score += 10
 
-    # 6. Number exists
+    # 7. Number exists
     if number:
         score += 5
 
-    # 7. Source bonus
+    # 8. Source bonus
     reliable_sources = [
         "еис",
         "сбер",
@@ -180,7 +220,7 @@ def calculate_relevance_score(tender):
     return score
 
 
-def apply_scoring(tenders):
+def apply_scoring(tenders, category=None):
     """
     Apply relevance score to every tender.
     """
@@ -188,7 +228,10 @@ def apply_scoring(tenders):
 
     for tender in tenders:
         item = dict(tender)
-        item["relevance_score"] = calculate_relevance_score(item)
+        item["relevance_score"] = calculate_relevance_score(
+            item,
+            category=category,
+        )
         scored.append(item)
 
     return scored
@@ -208,13 +251,13 @@ def sort_tenders(tenders):
     )
 
 
-def postprocess_tenders(tenders):
+def postprocess_tenders(tenders, category=None):
     """
     Main postprocess pipeline.
     """
     normalized = [normalize_tender(tender) for tender in tenders]
     unique = deduplicate_tenders(normalized)
-    scored = apply_scoring(unique)
+    scored = apply_scoring(unique, category=category)
     sorted_items = sort_tenders(scored)
 
     return sorted_items
